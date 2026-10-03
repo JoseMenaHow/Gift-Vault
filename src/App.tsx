@@ -146,31 +146,44 @@ function App() {
 
   return (
     <div className="app-canvas">
-      {!selectedPersonId ? (
-        <PeopleList
-          people={state.people}
-          ideas={state.ideas}
-          onSelectPerson={setSelectedPersonId}
-          onAddPerson={() => setActiveModal('addPerson')}
-          onEditPerson={handleEditPerson}
-          onDeletePerson={deletePerson}
-        />
-      ) : selectedPerson ? (
-        <PersonDetail
-          person={selectedPerson}
-          memories={personMemories}
-          ideas={personIdeas}
-          onBack={() => setSelectedPersonId(null)}
-          onAddMemory={() => setActiveModal('addMemory')}
-          onAddIdea={() => setActiveModal('addIdea')}
-          onEditPerson={handleEditPerson}
-          onDeletePerson={deletePerson}
-          onEditMemory={handleEditMemory}
-          onEditIdea={handleEditIdea}
-          onDeleteMemory={deleteMemory}
-          onDeleteIdea={deleteIdea}
-        />
-      ) : null}
+      <div className={`app-layout${selectedPersonId ? ' has-selection' : ''}`}>
+        <aside className="people-pane">
+          <PeopleList
+            people={state.people}
+            ideas={state.ideas}
+            selectedPersonId={selectedPersonId}
+            onSelectPerson={setSelectedPersonId}
+            onAddPerson={() => setActiveModal('addPerson')}
+            onEditPerson={handleEditPerson}
+            onDeletePerson={deletePerson}
+          />
+        </aside>
+
+        <main className="detail-pane">
+          {selectedPerson ? (
+            <PersonDetail
+              person={selectedPerson}
+              memories={personMemories}
+              ideas={personIdeas}
+              onBack={() => setSelectedPersonId(null)}
+              onAddMemory={() => setActiveModal('addMemory')}
+              onAddIdea={() => setActiveModal('addIdea')}
+              onEditPerson={handleEditPerson}
+              onDeletePerson={deletePerson}
+              onEditMemory={handleEditMemory}
+              onEditIdea={handleEditIdea}
+              onDeleteMemory={deleteMemory}
+              onDeleteIdea={deleteIdea}
+            />
+          ) : (
+            <div className="detail-placeholder">
+              <div className="detail-placeholder-icon">🎁</div>
+              <h2>Select someone</h2>
+              <p>Choose a person to see their gift ideas and memories.</p>
+            </div>
+          )}
+        </main>
+      </div>
 
       {activeModal === 'addPerson' && (
         <AddPersonModal

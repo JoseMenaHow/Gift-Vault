@@ -50,34 +50,36 @@ export default function PersonDetail({
   };
 
   return (
-    <div style={styles.container}>
-      <button onClick={onBack} style={styles.backButton}>
-        ← Back
+    <div className="person-detail">
+      <button onClick={onBack} className="back-button">
+        <span aria-hidden="true">←</span>
+        People
       </button>
 
-      <div style={styles.headerCard}>
-        <div style={styles.headerOverflow}>
+      <section className="person-hero">
+        <div className="person-hero-menu">
           <OverflowMenu
             onEdit={() => onEditPerson(person)}
             onDelete={() => onDeletePerson(person.id)}
             ariaLabel="Person actions"
           />
         </div>
-        <div style={styles.header}>
-          {person.photoUrl ? (
-            <img src={person.photoUrl} alt={person.name} style={styles.headerPhoto} />
-          ) : person.emoji ? (
-            <div style={styles.headerEmojiAvatar}>{person.emoji}</div>
-          ) : (
-            <div style={styles.headerDefaultAvatar}>👤</div>
-          )}
-          <h1 style={styles.name}>{person.name}</h1>
-          <p style={styles.relationship}>{person.relationship}</p>
+        {person.photoUrl ? (
+          <img src={person.photoUrl} alt="" className="person-hero-avatar person-photo" />
+        ) : (
+          <div className="person-hero-avatar person-placeholder" aria-hidden="true">
+            {person.emoji || '👤'}
+          </div>
+        )}
+        <div className="person-hero-copy">
+          <p className="page-eyebrow">Gift ideas for</p>
+          <h1>{person.name}</h1>
+          <p className="person-relationship">{person.relationship}</p>
           {person.labelText && (
-            <p style={styles.labelText}>{person.labelText}</p>
+            <p className="person-note">{person.labelText}</p>
           )}
         </div>
-      </div>
+      </section>
 
       <Tabs
         tabs={['Ideas', 'Memories']}
@@ -86,17 +88,15 @@ export default function PersonDetail({
       />
 
       {activeTab === 'Ideas' && (
-        <>
+        <section aria-label="Gift ideas">
           {allOccasions.length > 1 && (
-            <div style={styles.filterChips}>
+            <div className="filter-chips" aria-label="Filter ideas by occasion">
               {allOccasions.map((occasion) => (
                 <button
                   key={occasion}
                   onClick={() => setSelectedOccasion(occasion)}
-                  style={{
-                    ...styles.chip,
-                    ...(selectedOccasion === occasion ? styles.chipActive : {}),
-                  }}
+                  className={`filter-chip${selectedOccasion === occasion ? ' is-active' : ''}`}
+                  aria-pressed={selectedOccasion === occasion}
                 >
                   {occasion}
                 </button>
@@ -105,82 +105,92 @@ export default function PersonDetail({
           )}
 
           {filteredIdeas.length === 0 ? (
-            <p style={styles.emptyText}>No gift ideas yet</p>
+            <div className="content-empty-state">
+              <p>No gift ideas yet</p>
+              <button onClick={onAddIdea}>Add the first idea</button>
+            </div>
           ) : (
             <div className="idea-grid">
               {filteredIdeas.map((idea) => (
-                <div key={idea.id} style={styles.ideaCard}>
+                <article key={idea.id} className="idea-card">
                   {idea.imageUrl ? (
-                    <img src={idea.imageUrl} alt={idea.title} style={styles.ideaImage} />
+                    <img src={idea.imageUrl} alt="" className="idea-media" />
                   ) : idea.emoji ? (
-                    <div style={styles.ideaEmojiPlaceholder}>{idea.emoji}</div>
-                  ) : null}
-                  <div style={styles.ideaContent}>
-                    <div style={styles.ideaHeader}>
+                    <div className="idea-media idea-emoji" aria-hidden="true">{idea.emoji}</div>
+                  ) : (
+                    <div className="idea-media idea-emoji idea-emoji-empty" aria-hidden="true">🎁</div>
+                  )}
+                  <div className="idea-content">
+                    <div className="idea-menu">
                       <OverflowMenu
                         onEdit={() => onEditIdea(idea)}
                         onDelete={() => onDeleteIdea(idea.id)}
-                        ariaLabel="Idea actions"
+                        ariaLabel={`Actions for ${idea.title}`}
                       />
                     </div>
-                    <h3 style={styles.ideaTitle}>{idea.title}</h3>
+                    <h3>{idea.title}</h3>
                     {idea.description && (
-                      <p style={styles.ideaDescription}>{idea.description}</p>
+                      <p className="idea-description">{idea.description}</p>
                     )}
                     {idea.link && (
                       <a
                         href={idea.link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={styles.ideaLink}
+                        className="idea-link"
                       >
-                        View link
+                        View gift
+                        <span aria-hidden="true">↗</span>
                       </a>
                     )}
                     {idea.occasionTags && idea.occasionTags.length > 0 && (
-                      <div style={styles.tags}>
-                        {idea.occasionTags.map((tag, idx) => (
-                          <span key={idx} style={styles.tag}>{tag}</span>
+                      <div className="idea-tags">
+                        {idea.occasionTags.map((tag) => (
+                          <span key={tag} className="idea-tag">{tag}</span>
                         ))}
                       </div>
                     )}
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           )}
-        </>
+        </section>
       )}
 
       {activeTab === 'Memories' && (
-        <>
+        <section aria-label="Memories">
           {sortedMemories.length === 0 ? (
-            <p style={styles.emptyText}>No memories yet</p>
+            <div className="content-empty-state">
+              <p>No memories yet</p>
+              <button onClick={onAddMemory}>Add the first memory</button>
+            </div>
           ) : (
-            <div style={styles.memoryList}>
+            <div className="memory-list">
               {sortedMemories.map((memory) => (
-                <div key={memory.id} style={styles.memoryCard}>
-                  <div style={styles.memoryHeader}>
+                <article key={memory.id} className="memory-card">
+                  <div className="memory-menu">
                     <OverflowMenu
                       onEdit={() => onEditMemory(memory)}
                       onDelete={() => onDeleteMemory(memory.id)}
                       ariaLabel="Memory actions"
                     />
                   </div>
-                  <p style={styles.memoryDate}>{formatDate(memory.createdAt)}</p>
-                  <p style={styles.memoryText}>{memory.text}</p>
-                </div>
+                  <time dateTime={memory.createdAt}>{formatDate(memory.createdAt)}</time>
+                  <p>{memory.text}</p>
+                </article>
               ))}
             </div>
           )}
-        </>
+        </section>
       )}
 
       <button
         className="fab"
         onClick={activeTab === 'Ideas' ? onAddIdea : onAddMemory}
+        aria-label={activeTab === 'Ideas' ? 'Add gift idea' : 'Add memory'}
       >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path
             d="M12 5v14M5 12h14"
             stroke="currentColor"
@@ -192,194 +202,3 @@ export default function PersonDetail({
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    minHeight: '100vh',
-    padding: '32px 16px 100px',
-    maxWidth: '700px',
-    margin: '0 auto',
-  },
-  backButton: {
-    fontSize: '16px',
-    color: '#6B7280',
-    marginBottom: '16px',
-    cursor: 'pointer',
-  },
-  headerCard: {
-    background: '#FFFFFF',
-    borderRadius: '16px',
-    border: '1px solid #E5E7EB',
-    padding: '24px',
-    marginBottom: '16px',
-    position: 'relative',
-  },
-  headerOverflow: {
-    position: 'absolute',
-    top: '12px',
-    right: '12px',
-  },
-  header: {
-    textAlign: 'center',
-  },
-  headerPhoto: {
-    width: '64px',
-    height: '64px',
-    borderRadius: '50%',
-    objectFit: 'cover',
-    marginBottom: '12px',
-  },
-  headerEmojiAvatar: {
-    width: '64px',
-    height: '64px',
-    borderRadius: '50%',
-    background: '#F7F8FC',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '32px',
-    marginBottom: '12px',
-  },
-  headerDefaultAvatar: {
-    width: '64px',
-    height: '64px',
-    borderRadius: '50%',
-    background: '#F7F8FC',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '28px',
-    marginBottom: '12px',
-    opacity: 0.5,
-  },
-  name: {
-    fontSize: '28px',
-    fontFamily: "'Playfair Display', serif",
-    marginBottom: '4px',
-  },
-  relationship: {
-    fontSize: '14px',
-    color: '#6B7280',
-    marginBottom: '4px',
-  },
-  labelText: {
-    fontSize: '13px',
-    color: '#6B7280',
-    fontStyle: 'italic',
-  },
-  filterChips: {
-    display: 'flex',
-    gap: '8px',
-    flexWrap: 'wrap',
-    marginBottom: '24px',
-  },
-  chip: {
-    padding: '6px 16px',
-    borderRadius: '999px',
-    fontSize: '14px',
-    border: '1px solid #E5E7EB',
-    background: '#FFFFFF',
-    color: '#6B7280',
-    cursor: 'pointer',
-  },
-  chipActive: {
-    background: '#4F6EF7',
-    color: '#FFFFFF',
-    borderColor: '#4F6EF7',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#6B7280',
-    padding: '48px 0',
-    fontSize: '16px',
-  },
-  ideaCard: {
-    background: '#FFFFFF',
-    borderRadius: '16px',
-    overflow: 'hidden',
-    border: '1px solid #E5E7EB',
-    position: 'relative',
-  },
-  ideaImage: {
-    width: '100%',
-    height: '160px',
-    objectFit: 'cover',
-  },
-  ideaEmojiPlaceholder: {
-    width: '100%',
-    height: '160px',
-    background: '#F7F8FC',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '64px',
-  },
-  ideaContent: {
-    padding: '16px',
-    position: 'relative',
-  },
-  ideaHeader: {
-    position: 'absolute',
-    top: '12px',
-    right: '12px',
-  },
-  ideaTitle: {
-    fontSize: '18px',
-    fontFamily: "'Playfair Display', serif",
-    color: '#111111',
-    marginBottom: '8px',
-  },
-  ideaDescription: {
-    fontSize: '14px',
-    color: '#2B2B2B',
-    lineHeight: '1.5',
-    marginBottom: '8px',
-  },
-  ideaLink: {
-    fontSize: '14px',
-    color: '#4F6EF7',
-    textDecoration: 'none',
-    display: 'inline-block',
-    marginBottom: '8px',
-  },
-  tags: {
-    display: 'flex',
-    gap: '6px',
-    flexWrap: 'wrap',
-    marginTop: '12px',
-  },
-  tag: {
-    fontSize: '12px',
-    color: '#6B7280',
-    background: '#F7F8FC',
-    padding: '4px 10px',
-    borderRadius: '999px',
-  },
-  memoryList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-  },
-  memoryCard: {
-    background: '#FFFFFF',
-    borderRadius: '16px',
-    padding: '20px',
-    border: '1px solid #E5E7EB',
-    position: 'relative',
-  },
-  memoryHeader: {
-    position: 'absolute',
-    top: '12px',
-    right: '12px',
-  },
-  memoryDate: {
-    fontSize: '13px',
-    color: '#6B7280',
-    marginBottom: '8px',
-  },
-  memoryText: {
-    fontSize: '16px',
-    color: '#2B2B2B',
-    lineHeight: '1.6',
-  },
-};

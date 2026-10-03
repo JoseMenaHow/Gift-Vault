@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 
 interface Props {
   onEdit?: () => void;
@@ -8,8 +9,33 @@ interface Props {
 
 export default function OverflowMenu({ onEdit, onDelete, ariaLabel = 'Actions' }: Props) {
   const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const updateMenuPosition = useCallback(() => {
+    const button = buttonRef.current;
+    if (!button) return;
+
+    const rect = button.getBoundingClientRect();
+    const menuWidth = 144;
+    const menuHeight = (onEdit ? 44 : 0) + (onDelete ? 44 : 0) + 8;
+    const viewportPadding = 8;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top = spaceBelow >= menuHeight + viewportPadding
+      ? rect.bottom + 6
+      : Math.max(viewportPadding, rect.top - menuHeight - 6);
+    const left = Math.min(
+      window.innerWidth - menuWidth - viewportPadding,
+      Math.max(viewportPadding, rect.right - menuWidth)
+    );
+
+    setMenuPosition({ top, left });
+  }, [onDelete, onEdit]);
+
+  useLayoutEffect(() => {
+    if (isOpen) updateMenuPosition();
+  }, [isOpen, updateMenuPosition]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -32,14 +58,20 @@ export default function OverflowMenu({ onEdit, onDelete, ariaLabel = 'Actions' }
       }
     };
 
+    const handleViewportChange = () => updateMenuPosition();
+
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('scroll', handleViewportChange, true);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('scroll', handleViewportChange, true);
     };
-  }, [isOpen]);
+  }, [isOpen, updateMenuPosition]);
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -70,19 +102,25 @@ export default function OverflowMenu({ onEdit, onDelete, ariaLabel = 'Actions' }
       >
         ⋯
       </button>
-      {isOpen && (
-        <div ref={menuRef} className="overflow-menu-dropdown">
+      {isOpen && createPortal(
+        <div
+          ref={menuRef}
+          className="overflow-menu-dropdown"
+          style={{ top: menuPosition.top, left: menuPosition.left }}
+          role="menu"
+        >
           {onEdit && (
-            <button className="overflow-menu-item" onClick={handleEdit}>
+            <button className="overflow-menu-item" onClick={handleEdit} role="menuitem">
               Edit
             </button>
           )}
           {onDelete && (
-            <button className="overflow-menu-item" onClick={handleDelete}>
+            <button className="overflow-menu-item is-danger" onClick={handleDelete} role="menuitem">
               Delete
             </button>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
