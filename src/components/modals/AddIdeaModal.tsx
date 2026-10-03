@@ -132,56 +132,46 @@ export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }:
 
             <div className="form-group">
               <label className="form-label">Image (optional)</label>
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/jpg"
-                onChange={handleFileUpload}
-                className="form-input"
-              />
-              {(imageUrl || emoji) && (
-                <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  {imageUrl ? (
-                    <img src={imageUrl} alt="Preview" style={{ width: '80px', height: '80px', borderRadius: '12px', objectFit: 'cover' }} />
-                  ) : emoji ? (
-                    <div style={{ width: '80px', height: '80px', borderRadius: '12px', background: '#F7F8FC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '40px' }}>{emoji}</div>
-                  ) : null}
-                  <button
-                    type="button"
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/jpg"
+              onChange={handleFileUpload}
+              className="form-input form-file-input"
+            />
+            {(imageUrl || emoji) && (
+              <div className="media-preview media-preview-idea">
+                {imageUrl ? (
+                  <img src={imageUrl} alt="Preview" className="media-preview-image" />
+                ) : emoji ? (
+                  <div className="media-preview-fallback" aria-hidden="true">{emoji}</div>
+                ) : null}
+                <button
+                  type="button"
                     onClick={() => {
-                      setImageUrl('');
-                      setEmoji('');
-                    }}
-                    style={{ fontSize: '14px', color: '#6B7280' }}
-                  >
-                    Remove
-                  </button>
+                    setImageUrl('');
+                    setEmoji('');
+                  }}
+                  className="media-remove"
+                >
+                  Remove
+                </button>
                 </div>
               )}
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Or choose an emoji placeholder</label>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {EMOJI_OPTIONS.map((emojiOption) => (
-                  <button
-                    key={emojiOption}
-                    type="button"
-                    onClick={() => handleEmojiSelect(emojiOption)}
-                    style={{
-                      width: '56px',
-                      height: '56px',
-                      borderRadius: '12px',
-                      background: emoji === emojiOption ? '#4F6EF7' : '#F7F8FC',
-                      border: emoji === emojiOption ? '2px solid #4F6EF7' : '1px solid #E5E7EB',
-                      fontSize: '28px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {emojiOption}
-                  </button>
+          <div className="form-group">
+            <label className="form-label">Or choose an emoji placeholder</label>
+            <div className="emoji-picker emoji-picker-large">
+              {EMOJI_OPTIONS.map((emojiOption) => (
+                <button
+                  key={emojiOption}
+                  type="button"
+                  onClick={() => handleEmojiSelect(emojiOption)}
+                  className={`emoji-option${emoji === emojiOption ? ' is-selected' : ''}`}
+                  aria-pressed={emoji === emojiOption}
+                >
+                  {emojiOption}
+                </button>
                 ))}
               </div>
             </div>

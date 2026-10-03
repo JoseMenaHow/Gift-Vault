@@ -93,14 +93,14 @@ export default function AddPersonModal({ initialPerson, onSave, onClose }: Props
               type="file"
               accept="image/png,image/jpeg,image/jpg"
               onChange={handleFileUpload}
-              className="form-input"
+              className="form-input form-file-input"
             />
             {(photoUrl || emoji) && (
-              <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div className="media-preview media-preview-person">
                 {photoUrl ? (
-                  <img src={photoUrl} alt="Preview" style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }} />
+                  <img src={photoUrl} alt="Preview" className="media-preview-image" />
                 ) : emoji ? (
-                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#F7F8FC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>{emoji}</div>
+                  <div className="media-preview-fallback" aria-hidden="true">{emoji}</div>
                 ) : null}
                 <button
                   type="button"
@@ -108,7 +108,7 @@ export default function AddPersonModal({ initialPerson, onSave, onClose }: Props
                     setPhotoUrl('');
                     setEmoji('');
                   }}
-                  style={{ fontSize: '14px', color: '#6B7280' }}
+                  className="media-remove"
                 >
                   Remove
                 </button>
@@ -118,24 +118,14 @@ export default function AddPersonModal({ initialPerson, onSave, onClose }: Props
 
           <div className="form-group">
             <label className="form-label">Or choose an emoji placeholder</label>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <div className="emoji-picker">
               {EMOJI_OPTIONS.map((emojiOption) => (
                 <button
                   key={emojiOption}
                   type="button"
                   onClick={() => handleEmojiSelect(emojiOption)}
-                  style={{
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '50%',
-                    background: emoji === emojiOption ? '#4F6EF7' : '#F7F8FC',
-                    border: emoji === emojiOption ? '2px solid #4F6EF7' : '1px solid #E5E7EB',
-                    fontSize: '24px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
+                  className={`emoji-option${emoji === emojiOption ? ' is-selected' : ''}`}
+                  aria-pressed={emoji === emojiOption}
                 >
                   {emojiOption}
                 </button>
