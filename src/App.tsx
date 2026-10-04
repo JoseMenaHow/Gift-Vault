@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { AppState, Person, Memory, GiftIdea } from './types';
-import { loadState, saveState } from './storage';
+import { getLocalStateSavedAt, loadState, saveState } from './storage';
+import { loadDurableState, saveDurableState } from './durableStorage';
 import PeopleList from './components/PeopleList';
 import PersonDetail from './components/PersonDetail';
 import AddPersonModal from './components/modals/AddPersonModal';
@@ -16,10 +17,40 @@ function App() {
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
   const [editingIdea, setEditingIdea] = useState<GiftIdea | null>(null);
+  const [isPersistenceReady, setIsPersistenceReady] = useState(false);
 
   useEffect(() => {
-    saveState(state);
-  }, [state]);
+    let isMounted = true;
+
+    const restoreDurableState = async () => {
+      try {
+        const durableState = await loadDurableState();
+        if (isMounted && durableState && durableState.savedAt > getLocalStateSavedAt()) {
+          setState(durableState.state);
+        }
+      } catch (error) {
+        console.error('Failed to restore durable state:', error);
+      } finally {
+        if (isMounted) setIsPersistenceReady(true);
+      }
+    };
+
+    void restoreDurableState();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isPersistenceReady) return;
+
+    const savedAt = Date.now();
+    saveState(state, savedAt);
+    void saveDurableState(state, savedAt).catch((error: unknown) => {
+      console.error('Failed to save durable state:', error);
+    });
+  }, [isPersistenceReady, state]);
 
   useEffect(() => {
     const viewport = window.visualViewport;

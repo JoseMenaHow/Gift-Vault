@@ -1,6 +1,8 @@
 import type { AppState, Person } from "./types";
 
 const STORAGE_KEY = 'gift-vault-state-v1';
+const BACKUP_STORAGE_KEY = 'gift-vault-state-backup-v1';
+const SAVED_AT_STORAGE_KEY = 'gift-vault-state-saved-at-v1';
 
 const emptyState: AppState = {
   people: [],
@@ -26,25 +28,45 @@ function migratePerson(person: StoredPerson): Person {
   return { ...currentPerson, tags };
 }
 
-export function loadState(): AppState {
+function parseState(stored: string): AppState {
+  const parsed = JSON.parse(stored);
+  if (!parsed || typeof parsed !== 'object') throw new Error('Stored state is invalid');
+
+  const state = parsed as Partial<AppState>;
+  return {
+    people: Array.isArray(state.people) ? state.people.map(migratePerson) : [],
+    memories: Array.isArray(state.memories) ? state.memories : [],
+    ideas: Array.isArray(state.ideas) ? state.ideas : [],
+  };
+}
+
+function loadStoredState(key: string): AppState | null {
+  const stored = localStorage.getItem(key);
+  if (!stored) return null;
+
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return emptyState;
-    const parsed = JSON.parse(stored);
-    return {
-      people: (parsed.people || []).map(migratePerson),
-      memories: parsed.memories || [],
-      ideas: parsed.ideas || [],
-    };
+    return parseState(stored);
   } catch (error) {
-    console.error('Failed to load state:', error);
-    return emptyState;
+    console.error(`Failed to load ${key}:`, error);
+    return null;
   }
 }
 
-export function saveState(state: AppState): void {
+export function loadState(): AppState {
+  return loadStoredState(STORAGE_KEY) || loadStoredState(BACKUP_STORAGE_KEY) || emptyState;
+}
+
+export function getLocalStateSavedAt(): number {
+  const savedAt = Number(localStorage.getItem(SAVED_AT_STORAGE_KEY));
+  return Number.isFinite(savedAt) ? savedAt : 0;
+}
+
+export function saveState(state: AppState, savedAt = Date.now()): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const serializedState = JSON.stringify(state);
+    localStorage.setItem(BACKUP_STORAGE_KEY, serializedState);
+    localStorage.setItem(STORAGE_KEY, serializedState);
+    localStorage.setItem(SAVED_AT_STORAGE_KEY, String(savedAt));
   } catch (error) {
     console.error('Failed to save state:', error);
   }

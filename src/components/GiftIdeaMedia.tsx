@@ -7,13 +7,11 @@ interface Props {
 }
 
 export default function GiftIdeaMedia({ imageUrl, emoji, link }: Props) {
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | undefined>();
+  const [preview, setPreview] = useState<{ link: string; imageUrl: string } | null>(null);
+  const previewImageUrl = preview && preview.link === link ? preview.imageUrl : undefined;
 
   useEffect(() => {
-    if (!link || imageUrl || emoji) {
-      setPreviewImageUrl(undefined);
-      return;
-    }
+    if (!link || imageUrl || emoji) return;
 
     const controller = new AbortController();
 
@@ -25,7 +23,7 @@ export default function GiftIdeaMedia({ imageUrl, emoji, link }: Props) {
         if (!response.ok) return;
 
         const preview = await response.json() as { imageUrl?: string };
-        if (preview.imageUrl) setPreviewImageUrl(preview.imageUrl);
+        if (preview.imageUrl) setPreview({ link, imageUrl: preview.imageUrl });
       } catch {
         // A card without preview metadata continues to use the gift fallback.
       }
@@ -44,7 +42,7 @@ export default function GiftIdeaMedia({ imageUrl, emoji, link }: Props) {
         src={previewImageUrl}
         alt=""
         className="idea-media"
-        onError={() => setPreviewImageUrl(undefined)}
+        onError={() => setPreview(null)}
       />
     );
   }
