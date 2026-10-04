@@ -160,13 +160,6 @@ export default function PeopleList({
                 tabIndex={0}
                 aria-current={isSelected ? 'page' : undefined}
               >
-                <div className="person-card-menu">
-                  <OverflowMenu
-                    onEdit={() => onEditPerson(person)}
-                    onDelete={() => onDeletePerson(person.id)}
-                    ariaLabel="Person actions"
-                  />
-                </div>
                 <div className="person-card-content">
                   {person.photoUrl ? (
                     <img
@@ -195,7 +188,14 @@ export default function PeopleList({
                       <span className="person-label">{person.labelText}</span>
                     )}
                   </div>
-                  <span className="person-card-arrow" aria-hidden="true">›</span>
+                  <div className="person-card-actions">
+                    <OverflowMenu
+                      onEdit={() => onEditPerson(person)}
+                      onDelete={() => onDeletePerson(person.id)}
+                      ariaLabel="Person actions"
+                    />
+                    <span className="person-card-arrow" aria-hidden="true">›</span>
+                  </div>
                 </div>
                 <span className="idea-count">
                   {ideaCount === 0 ? 'No open ideas' : `${ideaCount} ${ideaCount === 1 ? 'idea' : 'ideas'}`}

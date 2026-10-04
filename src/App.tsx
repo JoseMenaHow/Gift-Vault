@@ -21,6 +21,26 @@ function App() {
     saveState(state);
   }, [state]);
 
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const updateKeyboardOffset = () => {
+      const offset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      document.documentElement.style.setProperty('--keyboard-offset', `${offset > 80 ? offset : 0}px`);
+    };
+
+    updateKeyboardOffset();
+    viewport.addEventListener('resize', updateKeyboardOffset);
+    viewport.addEventListener('scroll', updateKeyboardOffset);
+
+    return () => {
+      viewport.removeEventListener('resize', updateKeyboardOffset);
+      viewport.removeEventListener('scroll', updateKeyboardOffset);
+      document.documentElement.style.removeProperty('--keyboard-offset');
+    };
+  }, []);
+
   const upsertPerson = (person: Omit<Person, 'id'> | Person) => {
     if ('id' in person) {
       // Update existing person

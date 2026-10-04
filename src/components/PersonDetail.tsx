@@ -3,6 +3,7 @@ import type { Person, Memory, GiftIdea } from '../types';
 import Tabs from './Tabs';
 import OverflowMenu from './OverflowMenu';
 import { getTagColorClassName } from '../tagColors';
+import GiftIdeaMedia from './GiftIdeaMedia';
 
 type DetailTab = 'Ideas' | 'Delivered gifts' | 'Memories';
 
@@ -138,13 +139,7 @@ export default function PersonDetail({
 
                 return (
                   <article key={idea.id} className={`idea-card${isGifted ? ' is-gifted' : ''}`}>
-                    {idea.imageUrl ? (
-                      <img src={idea.imageUrl} alt="" className="idea-media" />
-                    ) : idea.emoji ? (
-                      <div className="idea-media idea-emoji" aria-hidden="true">{idea.emoji}</div>
-                    ) : (
-                      <div className="idea-media idea-emoji idea-emoji-empty" aria-hidden="true">🎁</div>
-                    )}
+                    <GiftIdeaMedia imageUrl={idea.imageUrl} emoji={idea.emoji} link={idea.link} />
                     <div className="idea-content">
                       <div className="idea-menu">
                         <OverflowMenu
