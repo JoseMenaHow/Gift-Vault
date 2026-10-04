@@ -180,8 +180,15 @@ h3 {
   margin-bottom: 18px;
 }
 
+.people-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .people-search {
   width: 100%;
+  flex: 1;
   min-height: 42px;
   padding: 0 12px;
   border: 1px solid var(--border-strong);
@@ -204,6 +211,50 @@ h3 {
 .people-search:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 4px rgba(79, 110, 247, 0.13);
+}
+
+.people-tag-toggle {
+  position: relative;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--bg-card);
+  color: var(--text-meta);
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+.people-tag-toggle:hover,
+.people-tag-toggle:focus-visible,
+.people-tag-toggle.is-active {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.people-tag-toggle.is-active {
+  box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.12);
+}
+
+.people-tag-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  min-width: 17px;
+  height: 17px;
+  place-items: center;
+  padding: 0 4px;
+  border: 2px solid var(--surface-muted);
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1;
 }
 
 .people-tag-filters {

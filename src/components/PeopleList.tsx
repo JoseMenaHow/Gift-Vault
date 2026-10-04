@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Tags } from 'lucide-react';
 import type { Person, GiftIdea } from '../types';
 import OverflowMenu from './OverflowMenu';
 import { getTagColorClassName } from '../tagColors';
@@ -24,6 +25,7 @@ export default function PeopleList({
 }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [isTagFilterOpen, setIsTagFilterOpen] = useState(false);
 
   const getIdeaCount = (personId: string) => {
     return ideas.filter(i => i.personId === personId && !i.giftedAt).length;
@@ -84,16 +86,31 @@ export default function PeopleList({
       ) : (
         <>
           <section className="people-finder" aria-label="Find people">
-            <input
-              type="search"
-              className="people-search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search people"
-              aria-label="Search people by name"
-            />
-            {availableTags.length > 0 && (
-              <div className="people-tag-filters" aria-label="Filter people by tags">
+            <div className="people-search-row">
+              <input
+                type="search"
+                className="people-search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search people"
+                aria-label="Search people by name"
+              />
+              {availableTags.length > 0 && (
+                <button
+                  type="button"
+                  className={`people-tag-toggle${isTagFilterOpen ? ' is-active' : ''}`}
+                  onClick={() => setIsTagFilterOpen((isOpen) => !isOpen)}
+                  aria-label="Filter people by tags"
+                  aria-expanded={isTagFilterOpen}
+                  aria-controls="people-tag-filters"
+                >
+                  <Tags size={18} strokeWidth={2} aria-hidden="true" />
+                  {activeTags.length > 0 && <span className="people-tag-count">{activeTags.length}</span>}
+                </button>
+              )}
+            </div>
+            {isTagFilterOpen && availableTags.length > 0 && (
+              <div id="people-tag-filters" className="people-tag-filters" aria-label="Filter people by tags">
                 {availableTags.map((tag) => {
                   const isActive = activeTags.includes(tag);
 
