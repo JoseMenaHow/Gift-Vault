@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import type { Person } from '../../types';
+import { getTagColorClassName } from '../../tagColors';
 
 interface Props {
   initialPerson?: Person;
+  availableTags: string[];
   onSave: (person: Omit<Person, 'id'> | Person) => void;
   onClose: () => void;
 }
 
 const EMOJI_OPTIONS = ['❤️', '🎁', '⭐️', '😊', '📷'];
 
-export default function AddPersonModal({ initialPerson, onSave, onClose }: Props) {
+export default function AddPersonModal({ initialPerson, availableTags, onSave, onClose }: Props) {
   const [name, setName] = useState(initialPerson?.name || '');
-  const [relationship, setRelationship] = useState(initialPerson?.relationship || '');
+  const [selectedTags, setSelectedTags] = useState(initialPerson?.tags || []);
+  const [tagInput, setTagInput] = useState('');
+  const [isTagPickerOpen, setIsTagPickerOpen] = useState(false);
   const [photoUrl, setPhotoUrl] = useState(initialPerson?.photoUrl || '');
   const [emoji, setEmoji] = useState(initialPerson?.emoji || '');
   const [labelText, setLabelText] = useState(initialPerson?.labelText || '');
@@ -34,16 +38,43 @@ export default function AddPersonModal({ initialPerson, onSave, onClose }: Props
     setPhotoUrl('');
   };
 
+  const isTagSelected = (tag: string) => (
+    selectedTags.some((selectedTag) => selectedTag.toLocaleLowerCase() === tag.toLocaleLowerCase())
+  );
+
+  const addTag = (rawTag: string) => {
+    const tag = rawTag.trim();
+    if (!tag || isTagSelected(tag)) {
+      setTagInput('');
+      return;
+    }
+
+    setSelectedTags((currentTags) => [...currentTags, tag]);
+    setTagInput('');
+  };
+
+  const removeTag = (tag: string) => {
+    setSelectedTags((currentTags) => currentTags.filter((currentTag) => currentTag !== tag));
+  };
+
+  const tagQuery = tagInput.trim().toLocaleLowerCase();
+  const matchingTags = availableTags.filter((tag) => (
+    !isTagSelected(tag) && (!tagQuery || tag.toLocaleLowerCase().includes(tagQuery))
+  ));
+  const canCreateTag = Boolean(tagInput.trim()) && !availableTags.some(
+    (tag) => tag.toLocaleLowerCase() === tagQuery
+  ) && !isTagSelected(tagInput.trim());
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !relationship.trim()) return;
+    if (!name.trim()) return;
 
     if (initialPerson) {
       // Editing existing person
       onSave({
         ...initialPerson,
         name: name.trim(),
-        relationship: relationship.trim(),
+        tags: selectedTags.length > 0 ? selectedTags : undefined,
         photoUrl: photoUrl.trim() || undefined,
         emoji: emoji || undefined,
         labelText: labelText.trim() || undefined,
@@ -52,7 +83,7 @@ export default function AddPersonModal({ initialPerson, onSave, onClose }: Props
       // Adding new person
       onSave({
         name: name.trim(),
-        relationship: relationship.trim(),
+        tags: selectedTags.length > 0 ? selectedTags : undefined,
         photoUrl: photoUrl.trim() || undefined,
         emoji: emoji || undefined,
         labelText: labelText.trim() || undefined,
@@ -77,14 +108,77 @@ export default function AddPersonModal({ initialPerson, onSave, onClose }: Props
           </div>
 
           <div className="form-group">
-            <label className="form-label">Relationship</label>
-            <input
-              type="text"
-              className="form-input"
-              value={relationship}
-              onChange={(e) => setRelationship(e.target.value)}
-              placeholder="e.g., Sister, Best friend"
-            />
+            <label className="form-label">Tags (optional)</label>
+            <div className="tag-picker">
+              <div className="tag-picker-control" onClick={() => setIsTagPickerOpen(true)}>
+                {selectedTags.map((tag) => (
+                  <span key={tag} className={`tag-picker-chip ${getTagColorClassName(tag)}`}>
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        removeTag(tag);
+                      }}
+                      aria-label={`Remove ${tag}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  className="tag-picker-input"
+                  value={tagInput}
+                  onChange={(event) => setTagInput(event.target.value)}
+                  onFocus={() => setIsTagPickerOpen(true)}
+                  onBlur={() => window.setTimeout(() => setIsTagPickerOpen(false), 120)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ',') {
+                      event.preventDefault();
+                      addTag(tagInput);
+                    }
+                    if (event.key === 'Backspace' && !tagInput && selectedTags.length > 0) {
+                      setSelectedTags((currentTags) => currentTags.slice(0, -1));
+                    }
+                    if (event.key === 'Escape') setIsTagPickerOpen(false);
+                  }}
+                  placeholder={selectedTags.length === 0 ? 'Search or create a tag' : 'Add a tag'}
+                  aria-expanded={isTagPickerOpen}
+                  aria-controls="person-tag-options"
+                  aria-autocomplete="list"
+                />
+              </div>
+              {isTagPickerOpen && (matchingTags.length > 0 || canCreateTag) && (
+                <div id="person-tag-options" className="tag-picker-menu" role="listbox">
+                  {matchingTags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className="tag-picker-option"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => addTag(tag)}
+                      role="option"
+                    >
+                      <span className={`tag-picker-option-swatch ${getTagColorClassName(tag)}`} aria-hidden="true" />
+                      {tag}
+                    </button>
+                  ))}
+                  {canCreateTag && (
+                    <button
+                      type="button"
+                      className="tag-picker-option tag-picker-create"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => addTag(tagInput)}
+                      role="option"
+                    >
+                      <span className={`tag-picker-option-swatch ${getTagColorClassName(tagInput.trim())}`} aria-hidden="true" />
+                      Create “{tagInput.trim()}”
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="form-group">
@@ -162,7 +256,7 @@ export default function AddPersonModal({ initialPerson, onSave, onClose }: Props
             <button
               type="submit"
               className="btn-primary"
-              disabled={!name.trim() || !relationship.trim()}
+              disabled={!name.trim()}
             >
               Save
             </button>

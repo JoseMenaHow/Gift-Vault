@@ -1,5 +1,7 @@
+import { useMemo, useState } from 'react';
 import type { Person, GiftIdea } from '../types';
 import OverflowMenu from './OverflowMenu';
+import { getTagColorClassName } from '../tagColors';
 
 interface Props {
   people: Person[];
@@ -20,8 +22,32 @@ export default function PeopleList({
   onEditPerson,
   onDeletePerson,
 }: Props) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
   const getIdeaCount = (personId: string) => {
-    return ideas.filter(i => i.personId === personId).length;
+    return ideas.filter(i => i.personId === personId && !i.giftedAt).length;
+  };
+
+  const availableTags = useMemo(() => (
+    Array.from(new Set(people.flatMap((person) => person.tags || [])))
+      .sort((first, second) => first.localeCompare(second))
+  ), [people]);
+
+  const activeTags = selectedTags.filter((tag) => availableTags.includes(tag));
+  const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
+  const visiblePeople = people.filter((person) => {
+    const matchesName = !normalizedQuery || person.name.toLocaleLowerCase().includes(normalizedQuery);
+    const matchesTags = activeTags.length === 0 || activeTags.every((tag) => person.tags?.includes(tag));
+    return matchesName && matchesTags;
+  });
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags(() => (
+      activeTags.includes(tag)
+        ? activeTags.filter((currentTag) => currentTag !== tag)
+        : [...activeTags, tag]
+    ));
   };
 
   const handleCardKeyDown = (event: React.KeyboardEvent, personId: string) => {
@@ -56,8 +82,71 @@ export default function PeopleList({
           </button>
         </div>
       ) : (
-        <div className="people-list">
-          {people.map((person) => {
+        <>
+          <section className="people-finder" aria-label="Find people">
+            <input
+              type="search"
+              className="people-search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search people"
+              aria-label="Search people by name"
+            />
+            {availableTags.length > 0 && (
+              <div className="people-tag-filters" aria-label="Filter people by tags">
+                {availableTags.map((tag) => {
+                  const isActive = activeTags.includes(tag);
+
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      className={`people-tag-filter ${getTagColorClassName(tag)}${isActive ? ' is-active' : ''}`}
+                      onClick={() => toggleTag(tag)}
+                      aria-pressed={isActive}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {(searchQuery || activeTags.length > 0) && (
+              <button
+                type="button"
+                className="people-filters-clear"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedTags([]);
+                }}
+              >
+                Clear filters
+              </button>
+            )}
+          </section>
+
+          {visiblePeople.length === 0 ? (
+            <div className="people-filter-empty">
+              <div className="people-filter-empty-icon" aria-hidden="true">+</div>
+              <h2>No one found</h2>
+              <p>Start a new list for someone special.</p>
+              <button type="button" className="btn-primary" onClick={onAddPerson}>
+                Add someone
+              </button>
+              <button
+                type="button"
+                className="people-filter-reset"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedTags([]);
+                }}
+              >
+                Clear filters
+              </button>
+            </div>
+          ) : (
+            <div className="people-list">
+          {visiblePeople.map((person) => {
             const ideaCount = getIdeaCount(person.id);
             const isSelected = person.id === selectedPersonId;
 
@@ -92,7 +181,16 @@ export default function PeopleList({
                   )}
                   <div className="person-card-text">
                     <h2>{person.name}</h2>
-                    <p>{person.relationship}</p>
+                    {person.tags && person.tags.length > 0 && (
+                      <div className="person-tags" aria-label="Person tags">
+                        {person.tags.slice(0, 2).map((tag) => (
+                          <span key={tag} className={`person-tag ${getTagColorClassName(tag)}`}>{tag}</span>
+                        ))}
+                        {person.tags.length > 2 && (
+                          <span className="person-tag person-tag-more">+{person.tags.length - 2}</span>
+                        )}
+                      </div>
+                    )}
                     {person.labelText && (
                       <span className="person-label">{person.labelText}</span>
                     )}
@@ -100,12 +198,14 @@ export default function PeopleList({
                   <span className="person-card-arrow" aria-hidden="true">›</span>
                 </div>
                 <span className="idea-count">
-                  {ideaCount} {ideaCount === 1 ? 'idea' : 'ideas'}
+                  {ideaCount === 0 ? 'No open ideas' : `${ideaCount} ${ideaCount === 1 ? 'idea' : 'ideas'}`}
                 </span>
               </article>
             );
           })}
-        </div>
+            </div>
+          )}
+        </>
       )}
 
       {people.length > 0 && (

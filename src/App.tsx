@@ -118,6 +118,17 @@ function App() {
     }));
   };
 
+  const setIdeaGifted = (ideaId: string, gifted: boolean) => {
+    setState(prev => ({
+      ...prev,
+      ideas: prev.ideas.map(idea => (
+        idea.id === ideaId
+          ? { ...idea, giftedAt: gifted ? new Date().toISOString() : undefined }
+          : idea
+      )),
+    }));
+  };
+
   const handleEditPerson = (person: Person) => {
     setEditingPerson(person);
     setActiveModal('addPerson');
@@ -143,6 +154,9 @@ function App() {
   const selectedPerson = state.people.find(p => p.id === selectedPersonId);
   const personMemories = state.memories.filter(m => m.personId === selectedPersonId);
   const personIdeas = state.ideas.filter(i => i.personId === selectedPersonId);
+  const availablePersonTags = Array.from(
+    new Set(state.people.flatMap((person) => person.tags || []))
+  ).sort((first, second) => first.localeCompare(second));
 
   return (
     <div className="app-canvas">
@@ -174,6 +188,7 @@ function App() {
               onEditIdea={handleEditIdea}
               onDeleteMemory={deleteMemory}
               onDeleteIdea={deleteIdea}
+              onSetIdeaGifted={setIdeaGifted}
             />
           ) : (
             <div className="detail-placeholder">
@@ -188,6 +203,7 @@ function App() {
       {activeModal === 'addPerson' && (
         <AddPersonModal
           initialPerson={editingPerson || undefined}
+          availableTags={availablePersonTags}
           onSave={upsertPerson}
           onClose={closeModal}
         />

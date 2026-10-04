@@ -1,7 +1,7 @@
 export type Person = {
   id: string;
   name: string;
-  relationship: string;
+  tags?: string[];
   photoUrl?: string;
   emoji?: string;
   labelText?: string;
@@ -24,6 +24,7 @@ export type GiftIdea = {
   imageUrl?: string;
   emoji?: string;
   createdAt: string;
+  giftedAt?: string;
 };
 
 export type AppState = {

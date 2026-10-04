@@ -3,11 +3,19 @@ import { createPortal } from 'react-dom';
 
 interface Props {
   onEdit?: () => void;
+  onGift?: () => void;
+  giftLabel?: string;
   onDelete?: () => void;
   ariaLabel?: string;
 }
 
-export default function OverflowMenu({ onEdit, onDelete, ariaLabel = 'Actions' }: Props) {
+export default function OverflowMenu({
+  onEdit,
+  onGift,
+  giftLabel = 'Mark as gifted',
+  onDelete,
+  ariaLabel = 'Actions',
+}: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
@@ -19,7 +27,7 @@ export default function OverflowMenu({ onEdit, onDelete, ariaLabel = 'Actions' }
 
     const rect = button.getBoundingClientRect();
     const menuWidth = 144;
-    const menuHeight = (onEdit ? 44 : 0) + (onDelete ? 44 : 0) + 8;
+    const menuHeight = (onEdit ? 44 : 0) + (onGift ? 44 : 0) + (onDelete ? 44 : 0) + 8;
     const viewportPadding = 8;
     const spaceBelow = window.innerHeight - rect.bottom;
     const top = spaceBelow >= menuHeight + viewportPadding
@@ -31,7 +39,7 @@ export default function OverflowMenu({ onEdit, onDelete, ariaLabel = 'Actions' }
     );
 
     setMenuPosition({ top, left });
-  }, [onDelete, onEdit]);
+  }, [onDelete, onEdit, onGift]);
 
   useLayoutEffect(() => {
     if (isOpen) updateMenuPosition();
@@ -90,6 +98,12 @@ export default function OverflowMenu({ onEdit, onDelete, ariaLabel = 'Actions' }
     onDelete?.();
   };
 
+  const handleGift = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsOpen(false);
+    onGift?.();
+  };
+
   return (
     <div className="overflow-menu-container">
       <button
@@ -112,6 +126,11 @@ export default function OverflowMenu({ onEdit, onDelete, ariaLabel = 'Actions' }
           {onEdit && (
             <button className="overflow-menu-item" onClick={handleEdit} role="menuitem">
               Edit
+            </button>
+          )}
+          {onGift && (
+            <button className="overflow-menu-item is-gift-action" onClick={handleGift} role="menuitem">
+              {giftLabel}
             </button>
           )}
           {onDelete && (
