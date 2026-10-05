@@ -7,6 +7,7 @@ import PersonDetail from './components/PersonDetail';
 import AddPersonModal from './components/modals/AddPersonModal';
 import AddMemoryModal from './components/modals/AddMemoryModal';
 import AddIdeaModal from './components/modals/AddIdeaModal';
+import { findNextBirthday, formatBirthday } from './birthday';
 
 type ModalType = 'addPerson' | 'addMemory' | 'addIdea' | null;
 
@@ -18,6 +19,7 @@ function App() {
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
   const [editingIdea, setEditingIdea] = useState<GiftIdea | null>(null);
   const [isPersistenceReady, setIsPersistenceReady] = useState(false);
+  const [ideasTabRequest, setIdeasTabRequest] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -205,6 +207,13 @@ function App() {
   const selectedPerson = state.people.find(p => p.id === selectedPersonId);
   const personMemories = state.memories.filter(m => m.personId === selectedPersonId);
   const personIdeas = state.ideas.filter(i => i.personId === selectedPersonId);
+  const upcomingBirthday = findNextBirthday(state.people);
+  const birthdayNudge = upcomingBirthday && upcomingBirthday.daysAway <= 30
+    ? {
+        personId: upcomingBirthday.person.id,
+        message: `${upcomingBirthday.person.name}'s birthday is coming up · ${formatBirthday(upcomingBirthday.person.birthday!)}`,
+      }
+    : undefined;
   const availablePersonTags = Array.from(
     new Set(state.people.flatMap((person) => person.tags || []))
   ).sort((first, second) => first.localeCompare(second));
@@ -218,6 +227,11 @@ function App() {
             ideas={state.ideas}
             selectedPersonId={selectedPersonId}
             onSelectPerson={setSelectedPersonId}
+            birthdayNudge={birthdayNudge}
+            onOpenPersonIdeas={(personId) => {
+              setSelectedPersonId(personId);
+              setIdeasTabRequest((request) => request + 1);
+            }}
             onAddPerson={() => setActiveModal('addPerson')}
             onEditPerson={handleEditPerson}
             onDeletePerson={deletePerson}
@@ -231,9 +245,11 @@ function App() {
               memories={personMemories}
               ideas={personIdeas}
               onBack={() => setSelectedPersonId(null)}
+              ideasTabRequest={ideasTabRequest}
               onAddMemory={() => setActiveModal('addMemory')}
               onAddIdea={() => setActiveModal('addIdea')}
               onEditPerson={handleEditPerson}
+              onUpdatePerson={upsertPerson}
               onDeletePerson={deletePerson}
               onEditMemory={handleEditMemory}
               onEditIdea={handleEditIdea}

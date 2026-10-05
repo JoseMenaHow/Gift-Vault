@@ -5,6 +5,7 @@ export type Person = {
   photoUrl?: string;
   emoji?: string;
   labelText?: string;
+  birthday?: string;
 };
 
 export type Memory = {

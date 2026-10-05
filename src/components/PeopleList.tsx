@@ -1,14 +1,20 @@
 import { useMemo, useState } from 'react';
-import { Tags } from 'lucide-react';
+import { CalendarHeart, Tags } from 'lucide-react';
 import type { Person, GiftIdea } from '../types';
 import OverflowMenu from './OverflowMenu';
 import { getTagColorClassName } from '../tagColors';
+import WorkspaceNudge from './WorkspaceNudge';
 
 interface Props {
   people: Person[];
   ideas: GiftIdea[];
   selectedPersonId?: string | null;
+  birthdayNudge?: {
+    personId: string;
+    message: string;
+  };
   onSelectPerson: (personId: string) => void;
+  onOpenPersonIdeas: (personId: string) => void;
   onAddPerson: () => void;
   onEditPerson: (person: Person) => void;
   onDeletePerson: (personId: string) => void;
@@ -18,7 +24,9 @@ export default function PeopleList({
   people,
   ideas,
   selectedPersonId,
+  birthdayNudge,
   onSelectPerson,
+  onOpenPersonIdeas,
   onAddPerson,
   onEditPerson,
   onDeletePerson,
@@ -73,6 +81,16 @@ export default function PeopleList({
           </button>
         )}
       </header>
+
+      {birthdayNudge && (
+        <WorkspaceNudge
+          icon={<CalendarHeart size={18} strokeWidth={2} />}
+          onClick={() => onOpenPersonIdeas(birthdayNudge.personId)}
+          ariaLabel={`Open gift ideas for ${birthdayNudge.message}`}
+        >
+          {birthdayNudge.message}
+        </WorkspaceNudge>
+      )}
 
       {people.length === 0 ? (
         <div className="empty-state">
