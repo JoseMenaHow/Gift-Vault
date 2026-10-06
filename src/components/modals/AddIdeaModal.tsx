@@ -8,15 +8,12 @@ interface Props {
   onClose: () => void;
 }
 
-const EMOJI_OPTIONS = ['🎁', '⭐️', '❤️', '🎉', '🎈', '🎂', '💝', '🌟'];
-
 export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }: Props) {
   const [title, setTitle] = useState(initialIdea?.title || '');
   const [description, setDescription] = useState(initialIdea?.description || '');
   const [link, setLink] = useState(initialIdea?.link || '');
   const [occasionTags, setOccasionTags] = useState(initialIdea?.occasionTags?.join(', ') || '');
   const [imageUrl, setImageUrl] = useState(initialIdea?.imageUrl || '');
-  const [emoji, setEmoji] = useState(initialIdea?.emoji || '');
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -26,14 +23,8 @@ export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }:
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
       setImageUrl(dataUrl);
-      setEmoji('');
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleEmojiSelect = (selectedEmoji: string) => {
-    setEmoji(selectedEmoji);
-    setImageUrl('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -54,7 +45,6 @@ export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }:
         link: link.trim() || undefined,
         occasionTags: tags.length > 0 ? tags : undefined,
         imageUrl: imageUrl.trim() || undefined,
-        emoji: emoji || undefined,
       });
     } else {
       // Adding new idea
@@ -65,7 +55,6 @@ export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }:
         link: link.trim() || undefined,
         occasionTags: tags.length > 0 ? tags : undefined,
         imageUrl: imageUrl.trim() || undefined,
-        emoji: emoji || undefined,
       });
     }
   };
@@ -132,63 +121,26 @@ export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }:
 
             <div className="form-group">
               <label className="form-label">Image (optional)</label>
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/jpg"
-              onChange={handleFileUpload}
-              className="form-input form-file-input"
-            />
-            {(imageUrl || emoji) && (
-              <div className="media-preview media-preview-idea">
-                {imageUrl ? (
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/jpg"
+                onChange={handleFileUpload}
+                className="form-input form-file-input"
+              />
+              {imageUrl && (
+                <div className="media-preview media-preview-idea">
                   <img src={imageUrl} alt="Preview" className="media-preview-image" />
-                ) : emoji ? (
-                  <div className="media-preview-fallback" aria-hidden="true">{emoji}</div>
-                ) : null}
-                <button
-                  type="button"
-                    onClick={() => {
-                    setImageUrl('');
-                    setEmoji('');
-                  }}
-                  className="media-remove"
-                >
-                  Remove
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setImageUrl('')}
+                    className="media-remove"
+                  >
+                    Remove
+                  </button>
                 </div>
               )}
             </div>
 
-          <div className="form-group">
-            <label className="form-label">Or choose an emoji placeholder</label>
-            <div className="emoji-picker emoji-picker-large">
-              {EMOJI_OPTIONS.map((emojiOption) => (
-                <button
-                  key={emojiOption}
-                  type="button"
-                  onClick={() => handleEmojiSelect(emojiOption)}
-                  className={`emoji-option${emoji === emojiOption ? ' is-selected' : ''}`}
-                  aria-pressed={emoji === emojiOption}
-                >
-                  {emojiOption}
-                </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Image URL (optional)</label>
-              <input
-                type="url"
-                className="form-input"
-                value={imageUrl}
-                onChange={(e) => {
-                  setImageUrl(e.target.value);
-                  setEmoji('');
-                }}
-                placeholder="https://..."
-              />
-            </div>
           </div>
 
           <div className="fullscreen-modal-footer">

@@ -23,7 +23,6 @@ export type GiftIdea = {
   link?: string;
   occasionTags?: string[];
   imageUrl?: string;
-  emoji?: string;
   createdAt: string;
   giftedAt?: string;
 };

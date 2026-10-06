@@ -228,20 +228,6 @@ export default function AddPersonModal({ initialPerson, availableTags, onSave, o
           </div>
 
           <div className="form-group">
-            <label className="form-label">Photo URL (optional)</label>
-            <input
-              type="url"
-              className="form-input"
-              value={photoUrl}
-              onChange={(e) => {
-                setPhotoUrl(e.target.value);
-                setEmoji('');
-              }}
-              placeholder="https://..."
-            />
-          </div>
-
-          <div className="form-group">
             <label className="form-label">Custom label (optional)</label>
             <input
               type="text"

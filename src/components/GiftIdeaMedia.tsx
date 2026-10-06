@@ -2,16 +2,16 @@ import { useEffect, useState } from 'react';
 
 interface Props {
   imageUrl?: string;
-  emoji?: string;
   link?: string;
+  variant?: 'card' | 'detail';
 }
 
-export default function GiftIdeaMedia({ imageUrl, emoji, link }: Props) {
+export default function GiftIdeaMedia({ imageUrl, link, variant = 'card' }: Props) {
   const [preview, setPreview] = useState<{ link: string; imageUrl: string } | null>(null);
   const previewImageUrl = preview && preview.link === link ? preview.imageUrl : undefined;
 
   useEffect(() => {
-    if (!link || imageUrl || emoji) return;
+    if (!link || imageUrl) return;
 
     const controller = new AbortController();
 
@@ -32,20 +32,23 @@ export default function GiftIdeaMedia({ imageUrl, emoji, link }: Props) {
     void loadPreviewImage();
 
     return () => controller.abort();
-  }, [emoji, imageUrl, link]);
+  }, [imageUrl, link]);
 
-  if (imageUrl) return <img src={imageUrl} alt="" className="idea-media" />;
-  if (emoji) return <div className="idea-media idea-emoji" aria-hidden="true">{emoji}</div>;
+  const mediaClassName = variant === 'detail' ? 'gift-detail-media' : 'idea-media';
+
+  if (imageUrl) return <img src={imageUrl} alt="" className={mediaClassName} />;
   if (previewImageUrl) {
     return (
       <img
         src={previewImageUrl}
         alt=""
-        className="idea-media"
+        className={mediaClassName}
         onError={() => setPreview(null)}
       />
     );
   }
 
-  return <div className="idea-media idea-emoji idea-emoji-empty" aria-hidden="true">🎁</div>;
+  if (variant === 'detail') return null;
+
+  return <div className="idea-media idea-media-placeholder" aria-hidden="true" />;
 }

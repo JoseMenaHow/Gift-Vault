@@ -4,12 +4,14 @@ import { getLocalStateSavedAt, loadState, saveState } from './storage';
 import { loadDurableState, saveDurableState } from './durableStorage';
 import PeopleList from './components/PeopleList';
 import PersonDetail from './components/PersonDetail';
+import GiftDetail from './components/GiftDetail';
 import AddPersonModal from './components/modals/AddPersonModal';
 import AddMemoryModal from './components/modals/AddMemoryModal';
 import AddIdeaModal from './components/modals/AddIdeaModal';
 import { findNextBirthday, formatBirthday } from './birthday';
 
 type ModalType = 'addPerson' | 'addMemory' | 'addIdea' | null;
+type GiftListTab = 'Ideas' | 'Delivered gifts';
 
 function App() {
   const [state, setState] = useState<AppState>(() => loadState());
@@ -20,6 +22,8 @@ function App() {
   const [editingIdea, setEditingIdea] = useState<GiftIdea | null>(null);
   const [isPersistenceReady, setIsPersistenceReady] = useState(false);
   const [ideasTabRequest, setIdeasTabRequest] = useState(0);
+  const [selectedGiftId, setSelectedGiftId] = useState<string | null>(null);
+  const [giftListTab, setGiftListTab] = useState<GiftListTab>('Ideas');
 
   useEffect(() => {
     let isMounted = true;
@@ -169,6 +173,7 @@ function App() {
       ...prev,
       ideas: prev.ideas.filter(i => i.id !== ideaId),
     }));
+    if (selectedGiftId === ideaId) setSelectedGiftId(null);
   };
 
   const setIdeaGifted = (ideaId: string, gifted: boolean) => {
@@ -205,6 +210,7 @@ function App() {
   };
 
   const selectedPerson = state.people.find(p => p.id === selectedPersonId);
+  const selectedGift = state.ideas.find(idea => idea.id === selectedGiftId && idea.personId === selectedPersonId);
   const personMemories = state.memories.filter(m => m.personId === selectedPersonId);
   const personIdeas = state.ideas.filter(i => i.personId === selectedPersonId);
   const upcomingBirthday = findNextBirthday(state.people);
@@ -226,10 +232,16 @@ function App() {
             people={state.people}
             ideas={state.ideas}
             selectedPersonId={selectedPersonId}
-            onSelectPerson={setSelectedPersonId}
+            onSelectPerson={(personId) => {
+              setSelectedPersonId(personId);
+              setSelectedGiftId(null);
+              setGiftListTab('Ideas');
+            }}
             birthdayNudge={birthdayNudge}
             onOpenPersonIdeas={(personId) => {
               setSelectedPersonId(personId);
+              setSelectedGiftId(null);
+              setGiftListTab('Ideas');
               setIdeasTabRequest((request) => request + 1);
             }}
             onAddPerson={() => setActiveModal('addPerson')}
@@ -239,12 +251,23 @@ function App() {
         </aside>
 
         <main className="detail-pane">
-          {selectedPerson ? (
+          {selectedPerson && selectedGift ? (
+            <GiftDetail
+              person={selectedPerson}
+              idea={selectedGift}
+              onBack={() => setSelectedGiftId(null)}
+            />
+          ) : selectedPerson ? (
             <PersonDetail
+              key={selectedPerson.id}
               person={selectedPerson}
               memories={personMemories}
               ideas={personIdeas}
-              onBack={() => setSelectedPersonId(null)}
+              onBack={() => {
+                setSelectedPersonId(null);
+                setSelectedGiftId(null);
+              }}
+              initialTab={giftListTab}
               ideasTabRequest={ideasTabRequest}
               onAddMemory={() => setActiveModal('addMemory')}
               onAddIdea={() => setActiveModal('addIdea')}
@@ -256,6 +279,10 @@ function App() {
               onDeleteMemory={deleteMemory}
               onDeleteIdea={deleteIdea}
               onSetIdeaGifted={setIdeaGifted}
+              onOpenGift={(idea, tab) => {
+                setGiftListTab(tab);
+                setSelectedGiftId(idea.id);
+              }}
             />
           ) : (
             <div className="detail-placeholder">

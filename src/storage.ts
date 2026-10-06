@@ -1,4 +1,4 @@
-import type { AppState, Person } from "./types";
+import type { AppState, GiftIdea, Person } from "./types";
 
 const STORAGE_KEY = 'gift-vault-state-v1';
 const BACKUP_STORAGE_KEY = 'gift-vault-state-backup-v1';
@@ -12,6 +12,10 @@ const emptyState: AppState = {
 
 type StoredPerson = Person & {
   relationship?: string;
+};
+
+type StoredGiftIdea = GiftIdea & {
+  emoji?: string;
 };
 
 function migratePerson(person: StoredPerson): Person {
@@ -28,6 +32,12 @@ function migratePerson(person: StoredPerson): Person {
   return { ...currentPerson, tags };
 }
 
+function migrateGiftIdea(idea: StoredGiftIdea): GiftIdea {
+  const currentIdea = { ...idea };
+  delete currentIdea.emoji;
+  return currentIdea;
+}
+
 function parseState(stored: string): AppState {
   const parsed = JSON.parse(stored);
   if (!parsed || typeof parsed !== 'object') throw new Error('Stored state is invalid');
@@ -36,7 +46,7 @@ function parseState(stored: string): AppState {
   return {
     people: Array.isArray(state.people) ? state.people.map(migratePerson) : [],
     memories: Array.isArray(state.memories) ? state.memories : [],
-    ideas: Array.isArray(state.ideas) ? state.ideas : [],
+    ideas: Array.isArray(state.ideas) ? state.ideas.map(migrateGiftIdea) : [],
   };
 }
 

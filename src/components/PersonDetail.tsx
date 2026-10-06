@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { CalendarPlus, Pencil, Trash2 } from 'lucide-react';
 import type { Person, Memory, GiftIdea } from '../types';
 import Tabs from './Tabs';
@@ -8,12 +8,14 @@ import GiftIdeaMedia from './GiftIdeaMedia';
 import { formatBirthday, getBirthdayFromInput, toBirthdayInputValue } from '../birthday';
 
 type DetailTab = 'Ideas' | 'Delivered gifts' | 'Memories';
+type GiftTab = Exclude<DetailTab, 'Memories'>;
 
 interface Props {
   person: Person;
   memories: Memory[];
   ideas: GiftIdea[];
   onBack: () => void;
+  initialTab: GiftTab;
   ideasTabRequest: number;
   onAddMemory: () => void;
   onAddIdea: () => void;
@@ -25,6 +27,7 @@ interface Props {
   onDeleteMemory: (memoryId: string) => void;
   onDeleteIdea: (ideaId: string) => void;
   onSetIdeaGifted: (ideaId: string, gifted: boolean) => void;
+  onOpenGift: (idea: GiftIdea, tab: GiftTab) => void;
 }
 
 export default function PersonDetail({
@@ -32,6 +35,7 @@ export default function PersonDetail({
   memories,
   ideas,
   onBack,
+  initialTab,
   ideasTabRequest,
   onAddMemory,
   onAddIdea,
@@ -43,15 +47,14 @@ export default function PersonDetail({
   onDeleteMemory,
   onDeleteIdea,
   onSetIdeaGifted,
+  onOpenGift,
 }: Props) {
-  const [activeTab, setActiveTab] = useState<DetailTab>('Ideas');
+  const [tabState, setTabState] = useState({ tab: initialTab as DetailTab, request: ideasTabRequest });
   const [selectedOccasion, setSelectedOccasion] = useState<string>('All');
   const [isBirthdayEditorOpen, setIsBirthdayEditorOpen] = useState(false);
   const [birthdayInput, setBirthdayInput] = useState(toBirthdayInputValue(person.birthday));
 
-  useEffect(() => {
-    if (ideasTabRequest > 0) setActiveTab('Ideas');
-  }, [ideasTabRequest]);
+  const activeTab = tabState.request === ideasTabRequest ? tabState.tab : 'Ideas';
 
   const activeIdeas = ideas.filter(idea => !idea.giftedAt);
   const deliveredIdeas = ideas
@@ -178,7 +181,7 @@ export default function PersonDetail({
       <Tabs
         tabs={['Ideas', 'Delivered gifts', 'Memories']}
         activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab as DetailTab)}
+        onTabChange={(tab) => setTabState({ tab: tab as DetailTab, request: ideasTabRequest })}
       />
 
       {(activeTab === 'Ideas' || activeTab === 'Delivered gifts') && (
@@ -216,7 +219,7 @@ export default function PersonDetail({
 
                 return (
                   <article key={idea.id} className={`idea-card${isGifted ? ' is-gifted' : ''}`}>
-                    <GiftIdeaMedia imageUrl={idea.imageUrl} emoji={idea.emoji} link={idea.link} />
+                    <GiftIdeaMedia imageUrl={idea.imageUrl} link={idea.link} />
                     <div className="idea-content">
                       <div className="idea-menu">
                         <OverflowMenu
@@ -234,24 +237,23 @@ export default function PersonDetail({
                       {idea.description && (
                         <p className="idea-description">{idea.description}</p>
                       )}
-                      {idea.link && (
-                        <a
-                          href={idea.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                      <div className="idea-card-footer">
+                        {idea.occasionTags && idea.occasionTags.length > 0 && (
+                          <div className="idea-tags">
+                            {idea.occasionTags.map((tag) => (
+                              <span key={tag} className="idea-tag">{tag}</span>
+                            ))}
+                          </div>
+                        )}
+                        <button
+                          type="button"
                           className="idea-link"
+                          onClick={() => onOpenGift(idea, activeTab as GiftTab)}
                         >
                           View gift
                           <span aria-hidden="true">↗</span>
-                        </a>
-                      )}
-                      {idea.occasionTags && idea.occasionTags.length > 0 && (
-                        <div className="idea-tags">
-                          {idea.occasionTags.map((tag) => (
-                            <span key={tag} className="idea-tag">{tag}</span>
-                          ))}
-                        </div>
-                      )}
+                        </button>
+                      </div>
                     </div>
                   </article>
                 );

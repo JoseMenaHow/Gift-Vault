@@ -117,7 +117,8 @@ h3 {
 }
 
 .people-page,
-.person-detail {
+.person-detail,
+.gift-detail {
   width: 100%;
   max-width: 760px;
   min-height: 100vh;
@@ -575,6 +576,107 @@ h3 {
   font-size: 18px;
 }
 
+.gift-detail {
+  max-width: 780px;
+}
+
+.gift-detail-back {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  margin: -8px 0 16px;
+  color: var(--text-meta);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.gift-detail-back:hover {
+  color: var(--text-heading);
+}
+
+.gift-detail-card {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-soft);
+}
+
+.gift-detail-heading,
+.gift-detail-content {
+  padding: 24px;
+}
+
+.gift-detail-heading h1 {
+  overflow-wrap: anywhere;
+  font-size: clamp(28px, 7vw, 42px);
+  line-height: 1.15;
+}
+
+.gift-detail-status {
+  margin-top: 10px;
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.gift-detail-media {
+  display: block;
+  width: 100%;
+  max-height: 380px;
+  object-fit: cover;
+  background: var(--surface-muted);
+}
+
+.gift-detail-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.gift-detail-description {
+  max-width: 660px;
+  color: var(--text-body);
+  font-size: 16px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.gift-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.gift-detail-visit {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.gift-detail-visit:hover {
+  background: var(--accent-strong);
+  box-shadow: 0 6px 14px rgba(79, 110, 247, 0.22);
+  transform: translateY(-1px);
+}
+
+.gift-detail-created {
+  color: var(--text-meta);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .person-hero {
   position: relative;
   display: grid;
@@ -882,7 +984,10 @@ h3 {
 
 .idea-card {
   position: relative;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
   min-width: 0;
+  min-height: 116px;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
@@ -891,61 +996,73 @@ h3 {
 }
 
 .idea-media {
+  grid-column: 1;
+  grid-row: 1;
   width: 100%;
-  aspect-ratio: 16 / 10;
+  height: 100%;
+  min-height: 116px;
   object-fit: cover;
   background: #f0f2f5;
 }
 
-.idea-emoji {
-  display: grid;
-  place-items: center;
-  font-size: clamp(48px, 8vw, 66px);
-}
-
-.idea-emoji-empty {
-  color: #9199a4;
-  filter: grayscale(1);
-  font-size: 40px;
-  opacity: 0.55;
+.idea-media.idea-media-placeholder {
+  display: none;
 }
 
 .idea-content {
+  grid-column: 2;
+  grid-row: 1;
   position: relative;
-  padding: 16px;
+  min-width: 0;
+  padding: 14px 46px 14px 15px;
+}
+
+.idea-media-placeholder + .idea-content {
+  grid-column: 1 / -1;
+  grid-row: auto;
 }
 
 .idea-menu {
-  top: 8px;
-  right: 7px;
+  top: 6px;
+  right: 5px;
 }
 
 .idea-content h3 {
-  min-height: 22px;
-  padding-right: 32px;
+  min-height: 20px;
+  padding-right: 0;
   overflow-wrap: anywhere;
-  font-size: 18px;
+  font-size: 16px;
+  line-height: 1.3;
 }
 
 .idea-description {
   display: -webkit-box;
-  margin-top: 8px;
+  margin-top: 5px;
   overflow: hidden;
   color: var(--text-body);
   font-size: 13px;
-  line-height: 1.55;
+  line-height: 1.45;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
+}
+
+.idea-card-footer {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .idea-link {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  min-height: 36px;
-  margin-top: 7px;
+  min-height: 20px;
+  margin-top: 0;
   color: var(--accent);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 650;
   text-decoration: none;
 }
@@ -958,12 +1075,12 @@ h3 {
 .idea-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
+  gap: 5px;
+  margin-top: 0;
 }
 
 .idea-tag {
-  padding: 4px 8px;
+  padding: 3px 7px;
   border-radius: 4px;
   background: var(--accent-soft);
   color: #4157a6;
@@ -1558,7 +1675,7 @@ h3 {
 }
 
 .idea-content {
-  padding: 18px;
+  padding: 14px 46px 14px 15px;
 }
 
 .idea-content h3 {
@@ -1567,7 +1684,7 @@ h3 {
 
 .gifted-status {
   display: inline-flex;
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   color: var(--accent-strong);
   font-size: 11px;
   font-weight: 750;
@@ -1767,13 +1884,6 @@ h3 {
   transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
 }
 
-.emoji-picker-large .emoji-option {
-  width: 52px;
-  height: 52px;
-  border-radius: var(--radius-control);
-  font-size: 26px;
-}
-
 .emoji-option:hover {
   border-color: var(--accent-border);
   background: var(--accent-soft);
@@ -1811,7 +1921,8 @@ h3 {
 
 @media (min-width: 640px) {
   .people-page,
-  .person-detail {
+  .person-detail,
+  .gift-detail {
     padding: 36px 28px 112px;
   }
 
@@ -1829,6 +1940,15 @@ h3 {
 
   .idea-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .idea-card {
+    grid-template-columns: 108px minmax(0, 1fr);
+    min-height: 124px;
+  }
+
+  .idea-media {
+    min-height: 124px;
   }
 
   .person-hero {
@@ -1906,6 +2026,12 @@ h3 {
     padding: 34px 34px 112px;
   }
 
+  .gift-detail {
+    max-width: 840px;
+    min-height: 100%;
+    padding: 34px 34px 112px;
+  }
+
   .people-list {
     grid-template-columns: 1fr;
   }
@@ -1956,21 +2082,17 @@ h3 {
     grid-template-columns: 350px minmax(0, 1fr);
   }
 
-  .person-detail {
+  .person-detail,
+  .gift-detail {
     padding-right: 42px;
     padding-left: 42px;
   }
 }
 
-@media (min-width: 1320px) {
-  .idea-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 380px) {
   .people-page,
-  .person-detail {
+  .person-detail,
+  .gift-detail {
     padding-right: 14px;
     padding-left: 14px;
   }
