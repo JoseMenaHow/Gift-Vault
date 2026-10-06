@@ -2,28 +2,29 @@ import { useEffect, useState } from 'react';
 
 interface Props {
   imageUrl?: string;
-  link?: string;
+  links?: string[];
   variant?: 'card' | 'detail';
 }
 
-export default function GiftIdeaMedia({ imageUrl, link, variant = 'card' }: Props) {
+export default function GiftIdeaMedia({ imageUrl, links, variant = 'card' }: Props) {
+  const representativeLink = links?.[0];
   const [preview, setPreview] = useState<{ link: string; imageUrl: string } | null>(null);
-  const previewImageUrl = preview && preview.link === link ? preview.imageUrl : undefined;
+  const previewImageUrl = preview && preview.link === representativeLink ? preview.imageUrl : undefined;
 
   useEffect(() => {
-    if (!link || imageUrl) return;
+    if (!representativeLink || imageUrl) return;
 
     const controller = new AbortController();
 
     const loadPreviewImage = async () => {
       try {
-        const response = await fetch(`/api/link-preview?url=${encodeURIComponent(link)}`, {
+        const response = await fetch(`/api/link-preview?url=${encodeURIComponent(representativeLink)}`, {
           signal: controller.signal,
         });
         if (!response.ok) return;
 
         const preview = await response.json() as { imageUrl?: string };
-        if (preview.imageUrl) setPreview({ link, imageUrl: preview.imageUrl });
+        if (preview.imageUrl) setPreview({ link: representativeLink, imageUrl: preview.imageUrl });
       } catch {
         // A card without preview metadata continues to use the gift fallback.
       }
@@ -32,7 +33,7 @@ export default function GiftIdeaMedia({ imageUrl, link, variant = 'card' }: Prop
     void loadPreviewImage();
 
     return () => controller.abort();
-  }, [imageUrl, link]);
+  }, [imageUrl, representativeLink]);
 
   const mediaClassName = variant === 'detail' ? 'gift-detail-media' : 'idea-media';
 

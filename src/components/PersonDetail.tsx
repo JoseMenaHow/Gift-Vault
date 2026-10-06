@@ -219,7 +219,7 @@ export default function PersonDetail({
 
                 return (
                   <article key={idea.id} className={`idea-card${isGifted ? ' is-gifted' : ''}`}>
-                    <GiftIdeaMedia imageUrl={idea.imageUrl} link={idea.link} />
+                    <GiftIdeaMedia imageUrl={idea.imageUrl} links={idea.links} />
                     <div className="idea-content">
                       <div className="idea-menu">
                         <OverflowMenu

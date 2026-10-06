@@ -256,6 +256,7 @@ function App() {
               person={selectedPerson}
               idea={selectedGift}
               onBack={() => setSelectedGiftId(null)}
+              onEdit={() => handleEditIdea(selectedGift)}
             />
           ) : selectedPerson ? (
             <PersonDetail

@@ -20,7 +20,7 @@ export type GiftIdea = {
   personId: string;
   title: string;
   description?: string;
-  link?: string;
+  links?: string[];
   occasionTags?: string[];
   imageUrl?: string;
   createdAt: string;

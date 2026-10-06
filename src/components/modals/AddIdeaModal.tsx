@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Plus, X } from 'lucide-react';
 import type { GiftIdea } from '../../types';
 
 interface Props {
@@ -11,7 +12,7 @@ interface Props {
 export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }: Props) {
   const [title, setTitle] = useState(initialIdea?.title || '');
   const [description, setDescription] = useState(initialIdea?.description || '');
-  const [link, setLink] = useState(initialIdea?.link || '');
+  const [links, setLinks] = useState(initialIdea?.links?.length ? initialIdea.links : ['']);
   const [occasionTags, setOccasionTags] = useState(initialIdea?.occasionTags?.join(', ') || '');
   const [imageUrl, setImageUrl] = useState(initialIdea?.imageUrl || '');
 
@@ -35,6 +36,7 @@ export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }:
       .split(',')
       .map(t => t.trim())
       .filter(t => t.length > 0);
+    const savedLinks = links.map((link) => link.trim()).filter(Boolean);
 
     if (initialIdea) {
       // Editing existing idea (preserve id and createdAt)
@@ -42,7 +44,7 @@ export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }:
         ...initialIdea,
         title: title.trim(),
         description: description.trim() || undefined,
-        link: link.trim() || undefined,
+        links: savedLinks.length > 0 ? savedLinks : undefined,
         occasionTags: tags.length > 0 ? tags : undefined,
         imageUrl: imageUrl.trim() || undefined,
       });
@@ -52,7 +54,7 @@ export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }:
         personId,
         title: title.trim(),
         description: description.trim() || undefined,
-        link: link.trim() || undefined,
+        links: savedLinks.length > 0 ? savedLinks : undefined,
         occasionTags: tags.length > 0 ? tags : undefined,
         imageUrl: imageUrl.trim() || undefined,
       });
@@ -98,14 +100,48 @@ export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }:
             </div>
 
             <div className="form-group">
-              <label className="form-label">Link (optional)</label>
-              <input
-                type="url"
-                className="form-input"
-                value={link}
-                onChange={(e) => setLink(e.target.value)}
-                placeholder="https://..."
-              />
+              <label className="form-label">Links (optional)</label>
+              <div className="gift-link-fields">
+                {links.map((link, index) => (
+                  <div key={index} className="gift-link-field">
+                    <input
+                      type="url"
+                      className="form-input"
+                      value={link}
+                      onChange={(event) => {
+                        setLinks((currentLinks) => currentLinks.map((currentLink, currentIndex) => (
+                          currentIndex === index ? event.target.value : currentLink
+                        )));
+                      }}
+                      placeholder="https://..."
+                      aria-label={`Link ${index + 1}`}
+                    />
+                    <button
+                      type="button"
+                      className="gift-link-remove"
+                      onClick={() => {
+                        setLinks((currentLinks) => (
+                          currentLinks.length === 1
+                            ? ['']
+                            : currentLinks.filter((_, currentIndex) => currentIndex !== index)
+                        ));
+                      }}
+                      aria-label={`Remove link ${index + 1}`}
+                      title="Remove link"
+                    >
+                      <X size={17} strokeWidth={2} aria-hidden="true" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="gift-link-add"
+                onClick={() => setLinks((currentLinks) => [...currentLinks, ''])}
+              >
+                <Plus size={16} strokeWidth={2} aria-hidden="true" />
+                Add another link
+              </button>
             </div>
 
             <div className="form-group">

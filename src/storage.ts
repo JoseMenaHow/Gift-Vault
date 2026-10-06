@@ -14,7 +14,9 @@ type StoredPerson = Person & {
   relationship?: string;
 };
 
-type StoredGiftIdea = GiftIdea & {
+type StoredGiftIdea = Omit<GiftIdea, 'links'> & {
+  link?: unknown;
+  links?: unknown;
   emoji?: string;
 };
 
@@ -35,11 +37,25 @@ function migratePerson(person: StoredPerson): Person {
 function migrateGiftIdea(idea: StoredGiftIdea): GiftIdea {
   const currentIdea = { ...idea };
   delete currentIdea.emoji;
-  return currentIdea;
+  delete currentIdea.link;
+
+  const savedLinks = Array.isArray(idea.links)
+    ? idea.links
+      .filter((link): link is string => typeof link === 'string' && link.trim().length > 0)
+      .map((link) => link.trim())
+    : [];
+  const legacyLink = typeof idea.link === 'string' && idea.link.trim().length > 0
+    ? idea.link.trim()
+    : undefined;
+  const links = legacyLink && !savedLinks.includes(legacyLink)
+    ? [...savedLinks, legacyLink]
+    : savedLinks;
+
+  return { ...currentIdea, links: links.length > 0 ? links : undefined };
 }
 
-function parseState(stored: string): AppState {
-  const parsed = JSON.parse(stored);
+export function normalizeAppState(value: unknown): AppState {
+  const parsed = value;
   if (!parsed || typeof parsed !== 'object') throw new Error('Stored state is invalid');
 
   const state = parsed as Partial<AppState>;
@@ -48,6 +64,10 @@ function parseState(stored: string): AppState {
     memories: Array.isArray(state.memories) ? state.memories : [],
     ideas: Array.isArray(state.ideas) ? state.ideas.map(migrateGiftIdea) : [],
   };
+}
+
+function parseState(stored: string): AppState {
+  return normalizeAppState(JSON.parse(stored));
 }
 
 function loadStoredState(key: string): AppState | null {

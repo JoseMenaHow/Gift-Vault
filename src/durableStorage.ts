@@ -1,4 +1,5 @@
 import type { AppState } from './types';
+import { normalizeAppState } from './storage';
 
 const DATABASE_NAME = 'gift-vault';
 const STORE_NAME = 'state';
@@ -49,7 +50,9 @@ export async function loadDurableState(): Promise<DurableState | null> {
       request.onerror = () => reject(request.error);
     });
 
-    return isStoredRecord(record) ? { state: record.state, savedAt: record.savedAt } : null;
+    return isStoredRecord(record)
+      ? { state: normalizeAppState(record.state), savedAt: record.savedAt }
+      : null;
   } finally {
     database.close();
   }
