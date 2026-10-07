@@ -55,7 +55,9 @@ export default function GiftDetail({ person, idea, onBack, onEdit }: Props) {
           )}
         </div>
 
-        <GiftIdeaMedia imageUrl={idea.imageUrl} links={links} variant="detail" />
+        <div className="gift-detail-media-frame">
+          <GiftIdeaMedia imageUrl={idea.imageUrl} links={links} variant="detail" />
+        </div>
 
         <div className="gift-detail-content">
           {idea.description && <p className="gift-detail-description">{idea.description}</p>}

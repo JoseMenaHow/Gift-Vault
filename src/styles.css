@@ -650,8 +650,18 @@ h3 {
   display: block;
   width: 100%;
   max-height: 380px;
+  border-radius: 12px;
   object-fit: cover;
   background: var(--surface-muted);
+}
+
+.gift-detail-media-frame {
+  display: none;
+  padding: 0 24px;
+}
+
+.gift-detail-media-frame:has(.gift-detail-media) {
+  display: block;
 }
 
 .gift-detail-content {
@@ -1070,6 +1080,26 @@ h3 {
 
 .idea-media.idea-media-placeholder {
   display: none;
+}
+
+.idea-card:has(.idea-media:not(.idea-media-placeholder)) {
+  grid-template-columns: minmax(104px, 34%) minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px;
+}
+
+.idea-card:has(.idea-media:not(.idea-media-placeholder)) .idea-media {
+  min-height: 112px;
+  border-radius: 10px;
+}
+
+.idea-card:has(.idea-media:not(.idea-media-placeholder)) .idea-content {
+  padding: 8px 36px 8px 0;
+}
+
+.idea-card:has(.idea-media:not(.idea-media-placeholder)) .idea-menu {
+  top: 0;
+  right: 0;
 }
 
 .idea-content {
@@ -2065,6 +2095,10 @@ h3 {
     min-height: 124px;
   }
 
+  .idea-card:has(.idea-media:not(.idea-media-placeholder)) .idea-media {
+    min-height: 124px;
+  }
+
   .person-hero {
     grid-template-columns: 84px minmax(0, 1fr);
     gap: 22px;
@@ -2144,6 +2178,11 @@ h3 {
     max-width: 840px;
     min-height: 100%;
     padding: 34px 34px 112px;
+  }
+
+  .gift-detail-media-frame {
+    padding-right: 30px;
+    padding-left: 30px;
   }
 
   .people-list {
