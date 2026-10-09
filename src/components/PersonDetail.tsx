@@ -241,7 +241,7 @@ export default function PersonDetail({
                         {idea.occasionTags && idea.occasionTags.length > 0 && (
                           <div className="idea-tags">
                             {idea.occasionTags.map((tag) => (
-                              <span key={tag} className="idea-tag">{tag}</span>
+                              <span key={tag} className={`idea-tag ${getTagColorClassName(tag)}`}>{tag}</span>
                             ))}
                           </div>
                         )}

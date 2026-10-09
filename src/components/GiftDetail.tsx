@@ -1,5 +1,6 @@
 import { ArrowLeft, ExternalLink, Pencil } from 'lucide-react';
 import type { GiftIdea, Person } from '../types';
+import { getTagColorClassName } from '../tagColors';
 import GiftIdeaMedia from './GiftIdeaMedia';
 
 interface Props {
@@ -65,7 +66,7 @@ export default function GiftDetail({ person, idea, onBack, onEdit }: Props) {
           {idea.occasionTags && idea.occasionTags.length > 0 && (
             <div className="gift-detail-tags" aria-label="Occasions">
               {idea.occasionTags.map((tag) => (
-                <span key={tag} className="idea-tag">{tag}</span>
+                <span key={tag} className={`idea-tag ${getTagColorClassName(tag)}`}>{tag}</span>
               ))}
             </div>
           )}

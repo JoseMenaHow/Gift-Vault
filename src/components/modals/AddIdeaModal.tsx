@@ -1,19 +1,23 @@
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import type { GiftIdea } from '../../types';
+import { getTagColorClassName } from '../../tagColors';
 
 interface Props {
   personId: string;
   initialIdea?: GiftIdea;
+  availableTags: string[];
   onSave: (idea: Omit<GiftIdea, 'id' | 'createdAt'> | GiftIdea) => void;
   onClose: () => void;
 }
 
-export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }: Props) {
+export default function AddIdeaModal({ personId, initialIdea, availableTags, onSave, onClose }: Props) {
   const [title, setTitle] = useState(initialIdea?.title || '');
   const [description, setDescription] = useState(initialIdea?.description || '');
   const [links, setLinks] = useState(initialIdea?.links?.length ? initialIdea.links : ['']);
-  const [occasionTags, setOccasionTags] = useState(initialIdea?.occasionTags?.join(', ') || '');
+  const [selectedTags, setSelectedTags] = useState(initialIdea?.occasionTags || []);
+  const [tagInput, setTagInput] = useState('');
+  const [isTagPickerOpen, setIsTagPickerOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState(initialIdea?.imageUrl || '');
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -28,14 +32,37 @@ export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }:
     reader.readAsDataURL(file);
   };
 
+  const isTagSelected = (tag: string) => (
+    selectedTags.some((selectedTag) => selectedTag.toLocaleLowerCase() === tag.toLocaleLowerCase())
+  );
+
+  const addTag = (rawTag: string) => {
+    const tag = rawTag.trim();
+    if (!tag || isTagSelected(tag)) {
+      setTagInput('');
+      return;
+    }
+
+    setSelectedTags((currentTags) => [...currentTags, tag]);
+    setTagInput('');
+  };
+
+  const removeTag = (tag: string) => {
+    setSelectedTags((currentTags) => currentTags.filter((currentTag) => currentTag !== tag));
+  };
+
+  const tagQuery = tagInput.trim().toLocaleLowerCase();
+  const matchingTags = availableTags.filter((tag) => (
+    !isTagSelected(tag) && (!tagQuery || tag.toLocaleLowerCase().includes(tagQuery))
+  ));
+  const canCreateTag = Boolean(tagInput.trim()) && !availableTags.some(
+    (tag) => tag.toLocaleLowerCase() === tagQuery
+  ) && !isTagSelected(tagInput.trim());
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    const tags = occasionTags
-      .split(',')
-      .map(t => t.trim())
-      .filter(t => t.length > 0);
     const savedLinks = links.map((link) => link.trim()).filter(Boolean);
 
     if (initialIdea) {
@@ -45,7 +72,7 @@ export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }:
         title: title.trim(),
         description: description.trim() || undefined,
         links: savedLinks.length > 0 ? savedLinks : undefined,
-        occasionTags: tags.length > 0 ? tags : undefined,
+        occasionTags: selectedTags.length > 0 ? selectedTags : undefined,
         imageUrl: imageUrl.trim() || undefined,
       });
     } else {
@@ -55,7 +82,7 @@ export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }:
         title: title.trim(),
         description: description.trim() || undefined,
         links: savedLinks.length > 0 ? savedLinks : undefined,
-        occasionTags: tags.length > 0 ? tags : undefined,
+        occasionTags: selectedTags.length > 0 ? selectedTags : undefined,
         imageUrl: imageUrl.trim() || undefined,
       });
     }
@@ -146,13 +173,76 @@ export default function AddIdeaModal({ personId, initialIdea, onSave, onClose }:
 
             <div className="form-group">
               <label className="form-label">Occasion tags (optional)</label>
-              <input
-                type="text"
-                className="form-input"
-                value={occasionTags}
-                onChange={(e) => setOccasionTags(e.target.value)}
-                placeholder="Birthday, Christmas, Anniversary (comma-separated)"
-              />
+              <div className="tag-picker">
+                <div className="tag-picker-control" onClick={() => setIsTagPickerOpen(true)}>
+                  {selectedTags.map((tag) => (
+                    <span key={tag} className={`tag-picker-chip ${getTagColorClassName(tag)}`}>
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          removeTag(tag);
+                        }}
+                        aria-label={`Remove ${tag}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="text"
+                    className="tag-picker-input"
+                    value={tagInput}
+                    onChange={(event) => setTagInput(event.target.value)}
+                    onFocus={() => setIsTagPickerOpen(true)}
+                    onBlur={() => window.setTimeout(() => setIsTagPickerOpen(false), 120)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ',') {
+                        event.preventDefault();
+                        addTag(tagInput);
+                      }
+                      if (event.key === 'Backspace' && !tagInput && selectedTags.length > 0) {
+                        setSelectedTags((currentTags) => currentTags.slice(0, -1));
+                      }
+                      if (event.key === 'Escape') setIsTagPickerOpen(false);
+                    }}
+                    placeholder={selectedTags.length === 0 ? 'Search or create a tag' : 'Add a tag'}
+                    aria-expanded={isTagPickerOpen}
+                    aria-controls="idea-tag-options"
+                    aria-autocomplete="list"
+                  />
+                </div>
+                {isTagPickerOpen && (matchingTags.length > 0 || canCreateTag) && (
+                  <div id="idea-tag-options" className="tag-picker-menu" role="listbox">
+                    {matchingTags.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className="tag-picker-option"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => addTag(tag)}
+                        role="option"
+                      >
+                        <span className={`tag-picker-option-swatch ${getTagColorClassName(tag)}`} aria-hidden="true" />
+                        {tag}
+                      </button>
+                    ))}
+                    {canCreateTag && (
+                      <button
+                        type="button"
+                        className="tag-picker-option tag-picker-create"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => addTag(tagInput)}
+                        role="option"
+                      >
+                        <span className={`tag-picker-option-swatch ${getTagColorClassName(tagInput.trim())}`} aria-hidden="true" />
+                        Create “{tagInput.trim()}”
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="form-group">

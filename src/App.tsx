@@ -223,6 +223,9 @@ function App() {
   const availablePersonTags = Array.from(
     new Set(state.people.flatMap((person) => person.tags || []))
   ).sort((first, second) => first.localeCompare(second));
+  const availableOccasionTags = Array.from(
+    new Set(state.ideas.flatMap((idea) => idea.occasionTags || []))
+  ).sort((first, second) => first.localeCompare(second));
 
   return (
     <div className="app-canvas">
@@ -317,6 +320,7 @@ function App() {
         <AddIdeaModal
           personId={selectedPersonId}
           initialIdea={editingIdea || undefined}
+          availableTags={availableOccasionTags}
           onSave={upsertIdea}
           onClose={closeModal}
         />
