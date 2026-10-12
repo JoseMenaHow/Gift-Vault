@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 
 interface Props {
   onEdit?: () => void;
+  onDuplicate?: () => void;
   onGift?: () => void;
   giftLabel?: string;
   onDelete?: () => void;
@@ -11,6 +12,7 @@ interface Props {
 
 export default function OverflowMenu({
   onEdit,
+  onDuplicate,
   onGift,
   giftLabel = 'Mark as gifted',
   onDelete,
@@ -26,8 +28,8 @@ export default function OverflowMenu({
     if (!button) return;
 
     const rect = button.getBoundingClientRect();
-    const menuWidth = 144;
-    const menuHeight = (onEdit ? 44 : 0) + (onGift ? 44 : 0) + (onDelete ? 44 : 0) + 8;
+    const menuWidth = 180;
+    const menuHeight = (onEdit ? 44 : 0) + (onDuplicate ? 44 : 0) + (onGift ? 44 : 0) + (onDelete ? 44 : 0) + 8;
     const viewportPadding = 8;
     const spaceBelow = window.innerHeight - rect.bottom;
     const top = spaceBelow >= menuHeight + viewportPadding
@@ -39,7 +41,7 @@ export default function OverflowMenu({
     );
 
     setMenuPosition({ top, left });
-  }, [onDelete, onEdit, onGift]);
+  }, [onDelete, onDuplicate, onEdit, onGift]);
 
   useLayoutEffect(() => {
     if (isOpen) updateMenuPosition();
@@ -98,6 +100,12 @@ export default function OverflowMenu({
     onDelete?.();
   };
 
+  const handleDuplicate = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsOpen(false);
+    onDuplicate?.();
+  };
+
   const handleGift = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsOpen(false);
@@ -126,6 +134,11 @@ export default function OverflowMenu({
           {onEdit && (
             <button className="overflow-menu-item" onClick={handleEdit} role="menuitem">
               Edit
+            </button>
+          )}
+          {onDuplicate && (
+            <button className="overflow-menu-item" onClick={handleDuplicate} role="menuitem">
+              Duplicate to...
             </button>
           )}
           {onGift && (

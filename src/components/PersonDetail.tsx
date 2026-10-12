@@ -24,6 +24,7 @@ interface Props {
   onDeletePerson: (personId: string) => void;
   onEditMemory: (memory: Memory) => void;
   onEditIdea: (idea: GiftIdea) => void;
+  onDuplicateIdea: (idea: GiftIdea) => void;
   onDeleteMemory: (memoryId: string) => void;
   onDeleteIdea: (ideaId: string) => void;
   onSetIdeaGifted: (ideaId: string, gifted: boolean) => void;
@@ -44,6 +45,7 @@ export default function PersonDetail({
   onDeletePerson,
   onEditMemory,
   onEditIdea,
+  onDuplicateIdea,
   onDeleteMemory,
   onDeleteIdea,
   onSetIdeaGifted,
@@ -224,6 +226,7 @@ export default function PersonDetail({
                       <div className="idea-menu">
                         <OverflowMenu
                           onEdit={() => onEditIdea(idea)}
+                          onDuplicate={() => onDuplicateIdea(idea)}
                           onGift={() => onSetIdeaGifted(idea.id, !isGifted)}
                           giftLabel={isGifted ? 'Move back to ideas' : 'Mark as gifted'}
                           onDelete={() => onDeleteIdea(idea.id)}

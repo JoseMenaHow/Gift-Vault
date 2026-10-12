@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarHeart, Tags } from 'lucide-react';
+import { CalendarHeart, CircleUserRound, Tags } from 'lucide-react';
 import type { Person, GiftIdea } from '../types';
 import OverflowMenu from './OverflowMenu';
 import { getTagColorClassName } from '../tagColors';
@@ -18,6 +18,10 @@ interface Props {
   onAddPerson: () => void;
   onEditPerson: (person: Person) => void;
   onDeletePerson: (personId: string) => void;
+  accountEmail?: string;
+  isAuthLoading: boolean;
+  isSupabaseConfigured: boolean;
+  onOpenAccount: () => void;
 }
 
 export default function PeopleList({
@@ -30,6 +34,10 @@ export default function PeopleList({
   onAddPerson,
   onEditPerson,
   onDeletePerson,
+  accountEmail,
+  isAuthLoading,
+  isSupabaseConfigured,
+  onOpenAccount,
 }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -74,12 +82,23 @@ export default function PeopleList({
           <p className="page-eyebrow">Gift vault</p>
           <h1 className="page-title">My people</h1>
         </div>
-        {people.length > 0 && (
-          <button className="add-person-button" onClick={onAddPerson}>
-            <span aria-hidden="true">+</span>
-            Add
+        <div className="people-header-actions">
+          <button
+            type="button"
+            className="account-button"
+            onClick={onOpenAccount}
+            aria-label={accountEmail ? `Account: ${accountEmail}` : 'Open account'}
+          >
+            <CircleUserRound size={17} strokeWidth={2} aria-hidden="true" />
+            <span>{isAuthLoading ? 'Account' : accountEmail ? 'Account' : isSupabaseConfigured ? 'Sign in' : 'Account'}</span>
           </button>
-        )}
+          {people.length > 0 && (
+            <button className="add-person-button" onClick={onAddPerson}>
+              <span aria-hidden="true">+</span>
+              Add
+            </button>
+          )}
+        </div>
       </header>
 
       {birthdayNudge && (

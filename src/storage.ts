@@ -101,3 +101,34 @@ export function saveState(state: AppState, savedAt = Date.now()): void {
     console.error('Failed to save state:', error);
   }
 }
+
+/**
+ * Writes a confirmed restore to both local copies, rolling back if browser storage rejects it.
+ */
+export function replaceStoredState(state: AppState, savedAt = Date.now()): void {
+  const serializedState = JSON.stringify(state);
+  const previousValues = new Map([
+    [BACKUP_STORAGE_KEY, localStorage.getItem(BACKUP_STORAGE_KEY)],
+    [STORAGE_KEY, localStorage.getItem(STORAGE_KEY)],
+    [SAVED_AT_STORAGE_KEY, localStorage.getItem(SAVED_AT_STORAGE_KEY)],
+  ]);
+
+  try {
+    localStorage.setItem(BACKUP_STORAGE_KEY, serializedState);
+    localStorage.setItem(STORAGE_KEY, serializedState);
+    localStorage.setItem(SAVED_AT_STORAGE_KEY, String(savedAt));
+  } catch (error) {
+    for (const [key, value] of previousValues) {
+      try {
+        if (value === null) {
+          localStorage.removeItem(key);
+        } else {
+          localStorage.setItem(key, value);
+        }
+      } catch {
+        // Keep attempting the remaining rollback writes when browser storage is full.
+      }
+    }
+    throw error;
+  }
+}

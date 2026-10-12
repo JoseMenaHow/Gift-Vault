@@ -1,17 +1,39 @@
 import { useState, useEffect } from 'react';
+import { CheckCircle2, X } from 'lucide-react';
+import type { User } from '@supabase/supabase-js';
 import type { AppState, Person, Memory, GiftIdea } from './types';
-import { getLocalStateSavedAt, loadState, saveState } from './storage';
-import { loadDurableState, saveDurableState } from './durableStorage';
+import { getLocalStateSavedAt, loadState, replaceStoredState, saveState } from './storage';
+import { clearDurableState, loadDurableState, saveDurableState } from './durableStorage';
+import { downloadBackup, getLatestLocalState } from './backup';
+import { isSupabaseConfigured, supabase } from './supabase';
 import PeopleList from './components/PeopleList';
 import PersonDetail from './components/PersonDetail';
 import GiftDetail from './components/GiftDetail';
 import AddPersonModal from './components/modals/AddPersonModal';
 import AddMemoryModal from './components/modals/AddMemoryModal';
 import AddIdeaModal from './components/modals/AddIdeaModal';
+import DuplicateGiftModal from './components/modals/DuplicateGiftModal';
+import AccountModal from './components/modals/AccountModal';
+import BackupRestoreModal from './components/modals/BackupRestoreModal';
+import CloudMigrationModal from './components/modals/CloudMigrationModal';
 import { findNextBirthday, formatBirthday } from './birthday';
 
 type ModalType = 'addPerson' | 'addMemory' | 'addIdea' | null;
 type GiftListTab = 'Ideas' | 'Delivered gifts';
+
+function getAuthCallbackErrorMessage() {
+  const query = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const errorCode = query.get('error_code') || hash.get('error_code');
+  const error = query.get('error') || hash.get('error');
+
+  if (!errorCode && !error) return null;
+  if (errorCode === 'otp_expired' || /expired/i.test(errorCode || '')) {
+    return 'This sign-in link has expired. Request a new link to continue.';
+  }
+
+  return 'That sign-in link is invalid or has already been used. Request a new link to continue.';
+}
 
 function App() {
   const [state, setState] = useState<AppState>(() => loadState());
@@ -24,6 +46,14 @@ function App() {
   const [ideasTabRequest, setIdeasTabRequest] = useState(0);
   const [selectedGiftId, setSelectedGiftId] = useState<string | null>(null);
   const [giftListTab, setGiftListTab] = useState<GiftListTab>('Ideas');
+  const [duplicatingIdea, setDuplicatingIdea] = useState<GiftIdea | null>(null);
+  const [duplicateSuccess, setDuplicateSuccess] = useState<{ idea: GiftIdea; person: Person } | null>(null);
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(isSupabaseConfigured);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
+  const [isCloudMigrationOpen, setIsCloudMigrationOpen] = useState(false);
+  const [authCallbackError, setAuthCallbackError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -45,6 +75,47 @@ function App() {
 
     return () => {
       isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const callbackError = getAuthCallbackErrorMessage();
+    if (!callbackError) return;
+
+    setAuthCallbackError(callbackError);
+    setIsAccountModalOpen(true);
+    window.history.replaceState(window.history.state, document.title, window.location.pathname);
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) {
+      setIsAuthLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!isMounted) return;
+
+      if (error) {
+        console.error('Failed to restore the account session:', error);
+      }
+
+      setAuthUser(data.session?.user ?? null);
+      setIsAuthLoading(false);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
+
+      setAuthUser(session?.user ?? null);
+      setIsAuthLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
@@ -187,6 +258,37 @@ function App() {
     }));
   };
 
+  const duplicateIdea = (idea: GiftIdea, destinationPersonId: string) => {
+    const destinationPerson = state.people.find((person) => person.id === destinationPersonId);
+    if (!destinationPerson) return;
+
+    const duplicatedIdea: GiftIdea = {
+      ...idea,
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 11),
+      personId: destinationPersonId,
+      links: idea.links ? [...idea.links] : undefined,
+      occasionTags: idea.occasionTags ? [...idea.occasionTags] : undefined,
+      createdAt: new Date().toISOString(),
+      giftedAt: undefined,
+    };
+
+    setState((previousState) => ({
+      ...previousState,
+      ideas: [...previousState.ideas, duplicatedIdea],
+    }));
+    setDuplicatingIdea(null);
+    setDuplicateSuccess({ idea: duplicatedIdea, person: destinationPerson });
+  };
+
+  const openDuplicatedGift = () => {
+    if (!duplicateSuccess) return;
+
+    setSelectedPersonId(duplicateSuccess.person.id);
+    setGiftListTab('Ideas');
+    setSelectedGiftId(duplicateSuccess.idea.id);
+    setDuplicateSuccess(null);
+  };
+
   const handleEditPerson = (person: Person) => {
     setEditingPerson(person);
     setActiveModal('addPerson');
@@ -207,6 +309,37 @@ function App() {
     setEditingPerson(null);
     setEditingMemory(null);
     setEditingIdea(null);
+  };
+
+  const downloadLocalBackup = async () => {
+    const latestState = await getLatestLocalState(state);
+    return downloadBackup(latestState);
+  };
+
+  const restoreLocalBackup = async (restoredState: AppState) => {
+    const currentState = await getLatestLocalState(state);
+    const safetyBackupFilename = downloadBackup(currentState, 'safety');
+    const currentDurableState = await loadDurableState();
+    const savedAt = Date.now();
+
+    try {
+      await saveDurableState(restoredState, savedAt);
+      replaceStoredState(restoredState, savedAt);
+    } catch (error) {
+      try {
+        if (currentDurableState) {
+          await saveDurableState(currentDurableState.state, currentDurableState.savedAt);
+        } else {
+          await clearDurableState();
+        }
+      } catch (rollbackError) {
+        console.error('Failed to roll back durable storage after a restore error:', rollbackError);
+      }
+      throw error;
+    }
+
+    setState(restoredState);
+    return safetyBackupFilename;
   };
 
   const selectedPerson = state.people.find(p => p.id === selectedPersonId);
@@ -250,6 +383,10 @@ function App() {
             onAddPerson={() => setActiveModal('addPerson')}
             onEditPerson={handleEditPerson}
             onDeletePerson={deletePerson}
+            accountEmail={authUser?.email}
+            isAuthLoading={isAuthLoading}
+            isSupabaseConfigured={isSupabaseConfigured}
+            onOpenAccount={() => setIsAccountModalOpen(true)}
           />
         </aside>
 
@@ -280,6 +417,7 @@ function App() {
               onDeletePerson={deletePerson}
               onEditMemory={handleEditMemory}
               onEditIdea={handleEditIdea}
+              onDuplicateIdea={setDuplicatingIdea}
               onDeleteMemory={deleteMemory}
               onDeleteIdea={deleteIdea}
               onSetIdeaGifted={setIdeaGifted}
@@ -325,6 +463,75 @@ function App() {
           onClose={closeModal}
         />
       )}
+
+      {duplicatingIdea && (
+        <DuplicateGiftModal
+          idea={duplicatingIdea}
+          people={state.people}
+          onDuplicate={duplicateIdea}
+          onClose={() => setDuplicatingIdea(null)}
+        />
+      )}
+
+      {duplicateSuccess && (
+        <aside className="duplicate-success" role="status" aria-live="polite">
+          <CheckCircle2 size={20} strokeWidth={2} aria-hidden="true" />
+          <div className="duplicate-success-copy">
+            <strong>Gift copied to {duplicateSuccess.person.name}</strong>
+            <span>{duplicateSuccess.idea.title}</span>
+          </div>
+          <button type="button" className="duplicate-success-view" onClick={openDuplicatedGift}>
+            View gift
+          </button>
+          <button
+            type="button"
+            className="duplicate-success-close"
+            onClick={() => setDuplicateSuccess(null)}
+            aria-label="Dismiss confirmation"
+          >
+            <X size={17} strokeWidth={2} aria-hidden="true" />
+          </button>
+        </aside>
+      )}
+
+      {isAccountModalOpen && (
+        <AccountModal
+          email={authUser?.email}
+          isSessionLoading={isAuthLoading}
+          callbackError={authCallbackError || undefined}
+          onDismissCallbackError={() => setAuthCallbackError(null)}
+          onClose={() => {
+            setIsAccountModalOpen(false);
+            setAuthCallbackError(null);
+          }}
+          onOpenBackup={() => {
+            setIsAccountModalOpen(false);
+            setIsBackupModalOpen(true);
+          }}
+          onOpenCloudMigration={() => {
+            setIsAccountModalOpen(false);
+            setIsCloudMigrationOpen(true);
+          }}
+        />
+      )}
+
+      {isCloudMigrationOpen && authUser && (
+        <CloudMigrationModal
+          accountId={authUser.id}
+          accountEmail={authUser.email}
+          fallbackState={state}
+          onClose={() => setIsCloudMigrationOpen(false)}
+        />
+      )}
+
+      {isBackupModalOpen && (
+        <BackupRestoreModal
+          onDownloadBackup={downloadLocalBackup}
+          onRestoreBackup={restoreLocalBackup}
+          onClose={() => setIsBackupModalOpen(false)}
+        />
+      )}
+
     </div>
   );
 }

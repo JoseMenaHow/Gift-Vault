@@ -74,3 +74,20 @@ export async function saveDurableState(state: AppState, savedAt: number): Promis
     database.close();
   }
 }
+
+export async function clearDurableState(): Promise<void> {
+  if (!('indexedDB' in window)) return;
+
+  const database = await openDatabase();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(STORE_NAME, 'readwrite');
+      transaction.objectStore(STORE_NAME).delete(RECORD_ID);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  } finally {
+    database.close();
+  }
+}
