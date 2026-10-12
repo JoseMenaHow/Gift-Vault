@@ -26,31 +26,36 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
-function isStoredRecord(value: unknown): value is StoredRecord {
+function isStoredRecord(value: unknown, recordId: string): value is StoredRecord {
   if (!value || typeof value !== 'object') return false;
 
   const record = value as Partial<StoredRecord>;
   if (!record.state) return false;
 
-  return record.id === RECORD_ID
+  return record.id === recordId
     && typeof record.savedAt === 'number'
     && Array.isArray(record.state.people)
     && Array.isArray(record.state.memories)
     && Array.isArray(record.state.ideas);
 }
 
-export async function loadDurableState(): Promise<DurableState | null> {
+function getRecordId(accountId?: string) {
+  return accountId ? `account:${accountId}` : RECORD_ID;
+}
+
+export async function loadDurableState(accountId?: string): Promise<DurableState | null> {
   if (!('indexedDB' in window)) return null;
 
+  const recordId = getRecordId(accountId);
   const database = await openDatabase();
   try {
     const record = await new Promise<unknown>((resolve, reject) => {
-      const request = database.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get(RECORD_ID);
+      const request = database.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get(recordId);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
 
-    return isStoredRecord(record)
+    return isStoredRecord(record, recordId)
       ? { state: normalizeAppState(record.state), savedAt: record.savedAt }
       : null;
   } finally {
@@ -58,14 +63,15 @@ export async function loadDurableState(): Promise<DurableState | null> {
   }
 }
 
-export async function saveDurableState(state: AppState, savedAt: number): Promise<void> {
+export async function saveDurableState(state: AppState, savedAt: number, accountId?: string): Promise<void> {
   if (!('indexedDB' in window)) return;
 
+  const recordId = getRecordId(accountId);
   const database = await openDatabase();
   try {
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(STORE_NAME, 'readwrite');
-      transaction.objectStore(STORE_NAME).put({ id: RECORD_ID, state, savedAt } satisfies StoredRecord);
+      transaction.objectStore(STORE_NAME).put({ id: recordId, state, savedAt } satisfies StoredRecord);
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
       transaction.onabort = () => reject(transaction.error);
@@ -75,14 +81,15 @@ export async function saveDurableState(state: AppState, savedAt: number): Promis
   }
 }
 
-export async function clearDurableState(): Promise<void> {
+export async function clearDurableState(accountId?: string): Promise<void> {
   if (!('indexedDB' in window)) return;
 
+  const recordId = getRecordId(accountId);
   const database = await openDatabase();
   try {
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(STORE_NAME, 'readwrite');
-      transaction.objectStore(STORE_NAME).delete(RECORD_ID);
+      transaction.objectStore(STORE_NAME).delete(recordId);
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
       transaction.onabort = () => reject(transaction.error);

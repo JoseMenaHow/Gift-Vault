@@ -159,10 +159,10 @@ export async function readBackupFile(file: File): Promise<AppState> {
   return validateState(value.state);
 }
 
-export async function getLatestLocalState(fallback: AppState): Promise<AppState> {
+export async function getLatestLocalState(fallback: AppState, accountId?: string): Promise<AppState> {
   try {
-    const durableState = await loadDurableState();
-    return durableState && durableState.savedAt > getLocalStateSavedAt()
+    const durableState = await loadDurableState(accountId);
+    return durableState && durableState.savedAt > getLocalStateSavedAt(accountId)
       ? durableState.state
       : fallback;
   } catch {

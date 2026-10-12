@@ -1700,8 +1700,8 @@ h3 {
   background: var(--accent-soft);
 }
 
-.account-cloud-section div,
-.cloud-migration-backup div {
+.account-cloud-section > div:first-child,
+.cloud-migration-backup > div {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -1740,6 +1740,65 @@ h3 {
 
 .account-cloud-button:hover {
   border-color: var(--accent-strong);
+}
+
+.account-cloud-button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.account-cloud-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.account-cloud-section-alert {
+  border-color: #e7b8b8;
+  background: #fff7f7;
+}
+
+.account-cloud-section-alert .account-cloud-button {
+  border-color: #e7b8b8;
+  color: var(--danger);
+}
+
+.cloud-workspace-loading {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 24px;
+}
+
+.cloud-workspace-loading > div {
+  display: flex;
+  max-width: 260px;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-meta);
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.cloud-workspace-loading strong {
+  color: var(--text-heading);
+  font-size: 16px;
+}
+
+.cloud-workspace-loading-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 4px;
+  place-items: center;
+  border: 1px solid var(--accent-border);
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 17px;
+  font-weight: 750;
 }
 
 .account-sent {

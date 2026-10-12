@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CheckCircle2, CircleAlert, CloudUpload, Download, LoaderCircle, LogOut, Mail, X } from 'lucide-react';
+import { CheckCircle2, CircleAlert, CloudUpload, Download, LoaderCircle, LogOut, Mail, RefreshCw, X } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '../../supabase';
 
 interface Props {
@@ -10,6 +10,10 @@ interface Props {
   onClose: () => void;
   onOpenBackup: () => void;
   onOpenCloudMigration: () => void;
+  syncStatus: 'local' | 'loading' | 'synced' | 'saving' | 'pending' | 'conflict' | 'error';
+  syncMessage: string;
+  onRefreshCloud: () => void;
+  onRetryCloudSync: () => void;
 }
 
 type RequestState = 'idle' | 'sending' | 'sent' | 'error' | 'signing-out';
@@ -54,6 +58,10 @@ export default function AccountModal({
   onClose,
   onOpenBackup,
   onOpenCloudMigration,
+  syncStatus,
+  syncMessage,
+  onRefreshCloud,
+  onRetryCloudSync,
 }: Props) {
   const [emailInput, setEmailInput] = useState('');
   const [authMode, setAuthMode] = useState<AuthMode>('sign-in');
@@ -140,6 +148,18 @@ export default function AccountModal({
   const isBusy = requestState === 'sending' || requestState === 'signing-out';
   const isRequestBlocked = isBusy || cooldownSeconds > 0;
   const isCreatingAccount = authMode === 'create-account';
+  const isSyncBusy = syncStatus === 'loading' || syncStatus === 'saving';
+  const syncLabel = syncStatus === 'synced'
+    ? 'Up to date across your devices'
+    : syncStatus === 'saving'
+      ? 'Saving your latest changes…'
+      : syncStatus === 'pending'
+        ? 'Changes are saved on this device and waiting to sync'
+        : syncStatus === 'conflict'
+          ? 'Your vault changed on another device'
+          : syncStatus === 'error'
+            ? 'Cloud sync needs attention'
+            : 'Loading your cloud vault…';
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -184,10 +204,28 @@ export default function AccountModal({
                 <span>Your local vault stays on this device unless you choose to import it.</span>
               </div>
             </div>
+            <div className={`account-cloud-section${syncStatus === 'conflict' || syncStatus === 'error' ? ' account-cloud-section-alert' : ''}`}>
+              <div>
+                <strong>Cloud sync</strong>
+                <span>{syncMessage || syncLabel}</span>
+              </div>
+              <div className="account-cloud-actions">
+                {(syncStatus === 'pending' || syncStatus === 'conflict' || syncStatus === 'error') && (
+                  <button type="button" className="account-cloud-button" onClick={onRetryCloudSync} disabled={isSyncBusy}>
+                    <RefreshCw size={17} strokeWidth={2} aria-hidden="true" />
+                    Retry sync
+                  </button>
+                )}
+                <button type="button" className="account-cloud-button" onClick={onRefreshCloud} disabled={isSyncBusy}>
+                  <RefreshCw className={isSyncBusy ? 'account-spinner' : undefined} size={17} strokeWidth={2} aria-hidden="true" />
+                  Refresh
+                </button>
+              </div>
+            </div>
             <div className="account-cloud-section">
               <div>
-                <strong>Bring your gifts with you</strong>
-                <span>Securely import this device’s local vault into your account.</span>
+                <strong>Import a local vault</strong>
+                <span>Bring locally saved gifts into an empty account without replacing cloud data.</span>
               </div>
               <button type="button" className="account-cloud-button" onClick={onOpenCloudMigration}>
                 <CloudUpload size={17} strokeWidth={2} aria-hidden="true" />

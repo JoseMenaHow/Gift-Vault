@@ -4,7 +4,7 @@ const STORAGE_KEY = 'gift-vault-state-v1';
 const BACKUP_STORAGE_KEY = 'gift-vault-state-backup-v1';
 const SAVED_AT_STORAGE_KEY = 'gift-vault-state-saved-at-v1';
 
-const emptyState: AppState = {
+export const emptyState: AppState = {
   people: [],
   memories: [],
   ideas: [],
@@ -70,8 +70,12 @@ function parseState(stored: string): AppState {
   return normalizeAppState(JSON.parse(stored));
 }
 
-function loadStoredState(key: string): AppState | null {
-  const stored = localStorage.getItem(key);
+function scopedKey(key: string, accountId?: string) {
+  return accountId ? `${key}:account:${accountId}` : key;
+}
+
+function loadStoredState(key: string, accountId?: string): AppState | null {
+  const stored = localStorage.getItem(scopedKey(key, accountId));
   if (!stored) return null;
 
   try {
@@ -82,21 +86,21 @@ function loadStoredState(key: string): AppState | null {
   }
 }
 
-export function loadState(): AppState {
-  return loadStoredState(STORAGE_KEY) || loadStoredState(BACKUP_STORAGE_KEY) || emptyState;
+export function loadState(accountId?: string): AppState {
+  return loadStoredState(STORAGE_KEY, accountId) || loadStoredState(BACKUP_STORAGE_KEY, accountId) || emptyState;
 }
 
-export function getLocalStateSavedAt(): number {
-  const savedAt = Number(localStorage.getItem(SAVED_AT_STORAGE_KEY));
+export function getLocalStateSavedAt(accountId?: string): number {
+  const savedAt = Number(localStorage.getItem(scopedKey(SAVED_AT_STORAGE_KEY, accountId)));
   return Number.isFinite(savedAt) ? savedAt : 0;
 }
 
-export function saveState(state: AppState, savedAt = Date.now()): void {
+export function saveState(state: AppState, savedAt = Date.now(), accountId?: string): void {
   try {
     const serializedState = JSON.stringify(state);
-    localStorage.setItem(BACKUP_STORAGE_KEY, serializedState);
-    localStorage.setItem(STORAGE_KEY, serializedState);
-    localStorage.setItem(SAVED_AT_STORAGE_KEY, String(savedAt));
+    localStorage.setItem(scopedKey(BACKUP_STORAGE_KEY, accountId), serializedState);
+    localStorage.setItem(scopedKey(STORAGE_KEY, accountId), serializedState);
+    localStorage.setItem(scopedKey(SAVED_AT_STORAGE_KEY, accountId), String(savedAt));
   } catch (error) {
     console.error('Failed to save state:', error);
   }
@@ -105,18 +109,18 @@ export function saveState(state: AppState, savedAt = Date.now()): void {
 /**
  * Writes a confirmed restore to both local copies, rolling back if browser storage rejects it.
  */
-export function replaceStoredState(state: AppState, savedAt = Date.now()): void {
+export function replaceStoredState(state: AppState, savedAt = Date.now(), accountId?: string): void {
   const serializedState = JSON.stringify(state);
   const previousValues = new Map([
-    [BACKUP_STORAGE_KEY, localStorage.getItem(BACKUP_STORAGE_KEY)],
-    [STORAGE_KEY, localStorage.getItem(STORAGE_KEY)],
-    [SAVED_AT_STORAGE_KEY, localStorage.getItem(SAVED_AT_STORAGE_KEY)],
+    [scopedKey(BACKUP_STORAGE_KEY, accountId), localStorage.getItem(scopedKey(BACKUP_STORAGE_KEY, accountId))],
+    [scopedKey(STORAGE_KEY, accountId), localStorage.getItem(scopedKey(STORAGE_KEY, accountId))],
+    [scopedKey(SAVED_AT_STORAGE_KEY, accountId), localStorage.getItem(scopedKey(SAVED_AT_STORAGE_KEY, accountId))],
   ]);
 
   try {
-    localStorage.setItem(BACKUP_STORAGE_KEY, serializedState);
-    localStorage.setItem(STORAGE_KEY, serializedState);
-    localStorage.setItem(SAVED_AT_STORAGE_KEY, String(savedAt));
+    localStorage.setItem(scopedKey(BACKUP_STORAGE_KEY, accountId), serializedState);
+    localStorage.setItem(scopedKey(STORAGE_KEY, accountId), serializedState);
+    localStorage.setItem(scopedKey(SAVED_AT_STORAGE_KEY, accountId), String(savedAt));
   } catch (error) {
     for (const [key, value] of previousValues) {
       try {

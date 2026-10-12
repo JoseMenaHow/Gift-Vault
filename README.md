@@ -31,6 +31,14 @@ Use a separate test account and a small local vault first: one person with a bir
 
 If the import is interrupted, open the importer again with unchanged local data and choose **Resume import**. It uses the same import identifier and ignores already-created rows. If the signed-in account already has a different cloud dataset, Gift Vault stops rather than merging or replacing either dataset. Download a local backup and wait for a dedicated merge flow.
 
+## Cloud Sync Setup
+
+Cloud synchronization requires one additional migration after the import schema is installed. In the Supabase SQL Editor, run the complete contents of [20261011000200_add_cloud_sync_metadata.sql](./supabase/migrations/20261011000200_add_cloud_sync_metadata.sql).
+
+It adds server-managed revision timestamps and soft-delete markers to the existing Gift Vault tables. It preserves existing people, gifts, memories, and media. Once applied, signed-in accounts load their cloud vault on startup, save new changes to Supabase, and can use **Account → Refresh** to retrieve changes from another device.
+
+For safe testing, use a second browser profile with the same test account: create and edit a gift in the first profile, then use **Refresh** in the second. Delete it in the first, refresh the second, and confirm it disappears. For simultaneous edits to the same item, Gift Vault retains the local change, reports a conflict, and offers a backup-first refresh instead of overwriting either version automatically.
+
 ---
 
 # React + TypeScript + Vite

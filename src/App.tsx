@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CheckCircle2, X } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { AppState, Person, Memory, GiftIdea } from './types';
-import { getLocalStateSavedAt, loadState, replaceStoredState, saveState } from './storage';
+import { emptyState, getLocalStateSavedAt, loadState, replaceStoredState, saveState } from './storage';
 import { clearDurableState, loadDurableState, saveDurableState } from './durableStorage';
 import { downloadBackup, getLatestLocalState } from './backup';
 import { isSupabaseConfigured, supabase } from './supabase';
@@ -17,9 +17,20 @@ import AccountModal from './components/modals/AccountModal';
 import BackupRestoreModal from './components/modals/BackupRestoreModal';
 import CloudMigrationModal from './components/modals/CloudMigrationModal';
 import { findNextBirthday, formatBirthday } from './birthday';
+import {
+  CloudSyncConflictError,
+  getCloudSyncErrorMessage,
+  loadCloudSyncCache,
+  loadCloudVault,
+  sameCloudState,
+  saveCloudSyncCache,
+  synchronizeCloudVault,
+  type CloudSnapshot,
+} from './cloudSync';
 
 type ModalType = 'addPerson' | 'addMemory' | 'addIdea' | null;
 type GiftListTab = 'Ideas' | 'Delivered gifts';
+type SyncStatus = 'local' | 'loading' | 'synced' | 'saving' | 'pending' | 'conflict' | 'error';
 
 function getAuthCallbackErrorMessage() {
   const query = new URLSearchParams(window.location.search);
@@ -54,6 +65,19 @@ function App() {
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [isCloudMigrationOpen, setIsCloudMigrationOpen] = useState(false);
   const [authCallbackError, setAuthCallbackError] = useState<string | null>(null);
+  const [persistenceAccountId, setPersistenceAccountId] = useState<string | undefined>();
+  const [isCloudWorkspaceLoading, setIsCloudWorkspaceLoading] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('local');
+  const [syncMessage, setSyncMessage] = useState('');
+  const [syncRetry, setSyncRetry] = useState(0);
+  const cloudSnapshotRef = useRef<CloudSnapshot | null>(null);
+  const syncInFlightRef = useRef(false);
+  const currentStateRef = useRef(state);
+  const authUserId = authUser?.id;
+
+  useEffect(() => {
+    currentStateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     let isMounted = true;
@@ -123,11 +147,108 @@ function App() {
     if (!isPersistenceReady) return;
 
     const savedAt = Date.now();
-    saveState(state, savedAt);
-    void saveDurableState(state, savedAt).catch((error: unknown) => {
+    if (isCloudWorkspaceLoading) return;
+
+    saveState(state, savedAt, persistenceAccountId);
+    void saveDurableState(state, savedAt, persistenceAccountId).catch((error: unknown) => {
       console.error('Failed to save durable state:', error);
     });
-  }, [isPersistenceReady, state]);
+  }, [isPersistenceReady, isCloudWorkspaceLoading, persistenceAccountId, state]);
+
+  useEffect(() => {
+    if (!isPersistenceReady || isAuthLoading) return;
+
+    let isMounted = true;
+    const activateWorkspace = async () => {
+      setIsCloudWorkspaceLoading(true);
+      setPersistenceAccountId(undefined);
+      setSelectedPersonId(null);
+      setSelectedGiftId(null);
+      setState(emptyState);
+
+      if (!authUserId) {
+        cloudSnapshotRef.current = null;
+        setSyncStatus('local');
+        setSyncMessage('');
+        const localState = await getLatestLocalState(loadState());
+        if (!isMounted) return;
+        setState(localState);
+        setIsCloudWorkspaceLoading(false);
+        return;
+      }
+
+      const cachedSync = loadCloudSyncCache(authUserId);
+      try {
+        if (cachedSync?.pending) {
+          const cachedState = await getLatestLocalState(loadState(authUserId), authUserId);
+          if (!isMounted) return;
+          cloudSnapshotRef.current = cachedSync.snapshot;
+          setState(cachedState);
+          setPersistenceAccountId(authUserId);
+          setSyncStatus('pending');
+          setSyncMessage('Changes saved on this device are waiting to sync.');
+          setIsCloudWorkspaceLoading(false);
+          return;
+        }
+
+        const cloudSnapshot = await loadCloudVault(authUserId);
+        if (!isMounted) return;
+        cloudSnapshotRef.current = cloudSnapshot;
+        saveCloudSyncCache(authUserId, { snapshot: cloudSnapshot, pending: false });
+        setState(cloudSnapshot.state);
+        setPersistenceAccountId(authUserId);
+        setSyncStatus('synced');
+        setSyncMessage('');
+      } catch (error) {
+        if (!isMounted) return;
+        const fallback = cachedSync?.snapshot.state || emptyState;
+        cloudSnapshotRef.current = cachedSync?.snapshot || null;
+        setState(fallback);
+        setPersistenceAccountId(authUserId);
+        setSyncStatus('error');
+        setSyncMessage(getCloudSyncErrorMessage(error));
+      } finally {
+        if (isMounted) setIsCloudWorkspaceLoading(false);
+      }
+    };
+
+    void activateWorkspace();
+    return () => { isMounted = false; };
+  }, [authUserId, isAuthLoading, isPersistenceReady]);
+
+  useEffect(() => {
+    if (!authUserId || persistenceAccountId !== authUserId || isCloudWorkspaceLoading) return;
+    const snapshot = cloudSnapshotRef.current;
+    if (!snapshot
+      || syncInFlightRef.current
+      || syncStatus === 'conflict'
+      || syncStatus === 'pending'
+      || syncStatus === 'error'
+      || sameCloudState(state, snapshot.state)) return;
+
+    const desiredState = state;
+    syncInFlightRef.current = true;
+    setSyncStatus('saving');
+    setSyncMessage('');
+
+    void synchronizeCloudVault(authUserId, desiredState, snapshot)
+      .then((nextSnapshot) => {
+        cloudSnapshotRef.current = nextSnapshot;
+        saveCloudSyncCache(authUserId, { snapshot: nextSnapshot, pending: false });
+        if (sameCloudState(currentStateRef.current, desiredState)) {
+          setState(nextSnapshot.state);
+        }
+        setSyncStatus('synced');
+      })
+      .catch((error: unknown) => {
+        saveCloudSyncCache(authUserId, { snapshot, pending: true });
+        setSyncStatus(error instanceof CloudSyncConflictError ? 'conflict' : 'pending');
+        setSyncMessage(getCloudSyncErrorMessage(error));
+      })
+      .finally(() => {
+        syncInFlightRef.current = false;
+      });
+  }, [authUserId, isCloudWorkspaceLoading, persistenceAccountId, state, syncRetry, syncStatus]);
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -312,25 +433,25 @@ function App() {
   };
 
   const downloadLocalBackup = async () => {
-    const latestState = await getLatestLocalState(state);
+    const latestState = await getLatestLocalState(state, persistenceAccountId);
     return downloadBackup(latestState);
   };
 
   const restoreLocalBackup = async (restoredState: AppState) => {
-    const currentState = await getLatestLocalState(state);
+    const currentState = await getLatestLocalState(state, persistenceAccountId);
     const safetyBackupFilename = downloadBackup(currentState, 'safety');
-    const currentDurableState = await loadDurableState();
+    const currentDurableState = await loadDurableState(persistenceAccountId);
     const savedAt = Date.now();
 
     try {
-      await saveDurableState(restoredState, savedAt);
-      replaceStoredState(restoredState, savedAt);
+      await saveDurableState(restoredState, savedAt, persistenceAccountId);
+      replaceStoredState(restoredState, savedAt, persistenceAccountId);
     } catch (error) {
       try {
         if (currentDurableState) {
-          await saveDurableState(currentDurableState.state, currentDurableState.savedAt);
+          await saveDurableState(currentDurableState.state, currentDurableState.savedAt, persistenceAccountId);
         } else {
-          await clearDurableState();
+          await clearDurableState(persistenceAccountId);
         }
       } catch (rollbackError) {
         console.error('Failed to roll back durable storage after a restore error:', rollbackError);
@@ -340,6 +461,36 @@ function App() {
 
     setState(restoredState);
     return safetyBackupFilename;
+  };
+
+  const retryCloudSync = () => {
+    if (!authUser || !cloudSnapshotRef.current) return;
+    setSyncStatus('synced');
+    setSyncMessage('');
+    setSyncRetry((attempt) => attempt + 1);
+  };
+
+  const refreshFromCloud = async () => {
+    if (!authUser || syncStatus === 'saving') return;
+
+    if (syncStatus === 'pending' || syncStatus === 'conflict') {
+      downloadBackup(state, 'safety');
+    }
+
+    setIsCloudWorkspaceLoading(true);
+    try {
+      const cloudSnapshot = await loadCloudVault(authUser.id);
+      cloudSnapshotRef.current = cloudSnapshot;
+      saveCloudSyncCache(authUser.id, { snapshot: cloudSnapshot, pending: false });
+      setState(cloudSnapshot.state);
+      setSyncStatus('synced');
+      setSyncMessage('');
+    } catch (error) {
+      setSyncStatus('error');
+      setSyncMessage(getCloudSyncErrorMessage(error));
+    } finally {
+      setIsCloudWorkspaceLoading(false);
+    }
   };
 
   const selectedPerson = state.people.find(p => p.id === selectedPersonId);
@@ -359,6 +510,18 @@ function App() {
   const availableOccasionTags = Array.from(
     new Set(state.ideas.flatMap((idea) => idea.occasionTags || []))
   ).sort((first, second) => first.localeCompare(second));
+
+  if (isCloudWorkspaceLoading) {
+    return (
+      <div className="app-canvas cloud-workspace-loading" role="status" aria-live="polite">
+        <div>
+          <span className="cloud-workspace-loading-mark" aria-hidden="true">G</span>
+          <strong>Loading your Gift Vault</strong>
+          <span>Keeping this account’s vault separate from local data…</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-canvas">
@@ -512,6 +675,10 @@ function App() {
             setIsAccountModalOpen(false);
             setIsCloudMigrationOpen(true);
           }}
+          syncStatus={syncStatus}
+          syncMessage={syncMessage}
+          onRefreshCloud={() => void refreshFromCloud()}
+          onRetryCloudSync={retryCloudSync}
         />
       )}
 
@@ -519,7 +686,7 @@ function App() {
         <CloudMigrationModal
           accountId={authUser.id}
           accountEmail={authUser.email}
-          fallbackState={state}
+          fallbackState={loadState()}
           onClose={() => setIsCloudMigrationOpen(false)}
         />
       )}
