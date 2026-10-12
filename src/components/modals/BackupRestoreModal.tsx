@@ -2,16 +2,18 @@ import { useRef, useState } from 'react';
 import { CheckCircle2, Download, FileUp, LoaderCircle, ShieldCheck, X } from 'lucide-react';
 import type { AppState } from '../../types';
 import { readBackupFile } from '../../backup';
+import { getLocalBackupRestoreErrorMessage } from '../../localBackupRestore';
 
 interface Props {
   onDownloadBackup: () => Promise<string>;
   onRestoreBackup: (state: AppState) => Promise<string>;
+  restoreDisabledMessage?: string;
   onClose: () => void;
 }
 
 type RestoreView = 'select' | 'confirm' | 'complete';
 
-export default function BackupRestoreModal({ onDownloadBackup, onRestoreBackup, onClose }: Props) {
+export default function BackupRestoreModal({ onDownloadBackup, onRestoreBackup, restoreDisabledMessage, onClose }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [restoreView, setRestoreView] = useState<RestoreView>('select');
   const [backupState, setBackupState] = useState<AppState | null>(null);
@@ -68,8 +70,8 @@ export default function BackupRestoreModal({ onDownloadBackup, onRestoreBackup, 
       const safetyFilename = await onRestoreBackup(backupState);
       setNotice(`Backup restored. Your previous vault was downloaded as ${safetyFilename}.`);
       setRestoreView('complete');
-    } catch {
-      setErrorMessage('We could not restore this backup. Your current local data is still in place.');
+    } catch (error) {
+      setErrorMessage(getLocalBackupRestoreErrorMessage(error));
       setRestoreView('select');
     } finally {
       setIsRestoring(false);
@@ -147,17 +149,20 @@ export default function BackupRestoreModal({ onDownloadBackup, onRestoreBackup, 
                 accept="application/json,.json"
                 className="backup-file-input"
                 onChange={(event) => void handleFileSelection(event)}
+                disabled={Boolean(restoreDisabledMessage)}
               />
-              <button type="button" className="btn-secondary backup-action" onClick={() => inputRef.current?.click()} disabled={isReading}>
+              <button type="button" className="btn-secondary backup-action" onClick={() => inputRef.current?.click()} disabled={isReading || Boolean(restoreDisabledMessage)}>
                 {isReading ? <LoaderCircle className="account-spinner" size={17} /> : <FileUp size={17} strokeWidth={2} />}
                 {isReading ? 'Checking…' : 'Choose backup'}
               </button>
             </section>
 
+            {restoreDisabledMessage && <p className="backup-notice" role="status">{restoreDisabledMessage}</p>}
+
             {notice && <p className="backup-notice" role="status">{notice}</p>}
             {errorMessage && <p className="account-error backup-error" role="alert">{errorMessage}</p>}
 
-            {backupState && (
+            {backupState && !restoreDisabledMessage && (
               <button type="button" className="btn-primary backup-restore-button" onClick={() => setRestoreView('confirm')}>
                 Restore {backupFilename}
               </button>

@@ -5,6 +5,7 @@ import type { AppState, Person, Memory, GiftIdea } from './types';
 import { emptyState, getLocalStateSavedAt, loadState, replaceStoredState, saveState } from './storage';
 import { clearDurableState, loadDurableState, saveDurableState } from './durableStorage';
 import { downloadBackup, getLatestLocalState } from './backup';
+import { LocalBackupRestoreError, restoreLocalBackup as restoreDeviceLocalBackup } from './localBackupRestore';
 import { isSupabaseConfigured, supabase } from './supabase';
 import PeopleList from './components/PeopleList';
 import PersonDetail from './components/PersonDetail';
@@ -438,27 +439,20 @@ function App() {
   };
 
   const restoreLocalBackup = async (restoredState: AppState) => {
-    const currentState = await getLatestLocalState(state, persistenceAccountId);
-    const safetyBackupFilename = downloadBackup(currentState, 'safety');
-    const currentDurableState = await loadDurableState(persistenceAccountId);
-    const savedAt = Date.now();
-
-    try {
-      await saveDurableState(restoredState, savedAt, persistenceAccountId);
-      replaceStoredState(restoredState, savedAt, persistenceAccountId);
-    } catch (error) {
-      try {
-        if (currentDurableState) {
-          await saveDurableState(currentDurableState.state, currentDurableState.savedAt, persistenceAccountId);
-        } else {
-          await clearDurableState(persistenceAccountId);
-        }
-      } catch (rollbackError) {
-        console.error('Failed to roll back durable storage after a restore error:', rollbackError);
-      }
-      throw error;
+    if (authUser || persistenceAccountId) {
+      throw new LocalBackupRestoreError(
+        'To protect your cloud vault, sign out before restoring a local backup. You can then import it into an empty account from the account menu.',
+      );
     }
 
+    const safetyBackupFilename = await restoreDeviceLocalBackup(restoredState, {
+      getCurrentState: () => getLatestLocalState(state),
+      downloadSafetyBackup: (currentState) => downloadBackup(currentState, 'safety'),
+      loadDurableState: () => loadDurableState(),
+      saveDurableState: (nextState, savedAt) => saveDurableState(nextState, savedAt),
+      clearDurableState: () => clearDurableState(),
+      replaceStoredState: (nextState, savedAt) => replaceStoredState(nextState, savedAt),
+    });
     setState(restoredState);
     return safetyBackupFilename;
   };
@@ -695,6 +689,9 @@ function App() {
         <BackupRestoreModal
           onDownloadBackup={downloadLocalBackup}
           onRestoreBackup={restoreLocalBackup}
+          restoreDisabledMessage={authUser
+            ? 'To protect your cloud vault, sign out before restoring a local backup. Afterward, use Import local vault if you want to add it to an empty account.'
+            : undefined}
           onClose={() => setIsBackupModalOpen(false)}
         />
       )}
