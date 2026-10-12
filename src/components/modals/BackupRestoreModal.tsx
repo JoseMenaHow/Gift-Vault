@@ -2,18 +2,46 @@ import { useRef, useState } from 'react';
 import { CheckCircle2, Download, FileUp, LoaderCircle, ShieldCheck, X } from 'lucide-react';
 import type { AppState } from '../../types';
 import { readBackupFile } from '../../backup';
+import { getCloudRestoreErrorMessage, type CloudRestoreProgress } from '../../cloudRestore';
 import { getLocalBackupRestoreErrorMessage } from '../../localBackupRestore';
 
 interface Props {
   onDownloadBackup: () => Promise<string>;
-  onRestoreBackup: (state: AppState) => Promise<string>;
+  onRestoreBackup: (state: AppState, onProgress?: (progress: CloudRestoreProgress) => void) => Promise<string>;
+  restoreMode: 'local' | 'cloud';
+  accountEmail?: string;
   restoreDisabledMessage?: string;
   onClose: () => void;
 }
 
 type RestoreView = 'select' | 'confirm' | 'complete';
 
-export default function BackupRestoreModal({ onDownloadBackup, onRestoreBackup, restoreDisabledMessage, onClose }: Props) {
+function describeBackup(state: AppState) {
+  const details = [
+    `${state.people.length} ${state.people.length === 1 ? 'person' : 'people'}`,
+    `${state.ideas.length} ${state.ideas.length === 1 ? 'gift' : 'gifts'}`,
+  ];
+  if (state.memories.length > 0) details.push(`${state.memories.length} ${state.memories.length === 1 ? 'memory' : 'memories'}`);
+  return details.join(', ').replace(/, ([^,]*)$/, ', and $1');
+}
+
+function getProgressText(progress: CloudRestoreProgress | null) {
+  if (!progress) return 'Preparing this restore…';
+  if (progress.step === 'backing-up') return progress.total ? `Saving image ${progress.current} of ${progress.total} to your safety backup…` : 'Creating a complete cloud safety backup…';
+  if (progress.step === 'staging-media') return `Checking image ${progress.current} of ${progress.total}…`;
+  if (progress.step === 'staging-records') return 'Staging the backup records…';
+  if (progress.step === 'replacing') return 'Replacing this cloud vault…';
+  return 'Verifying the restored cloud vault…';
+}
+
+export default function BackupRestoreModal({
+  onDownloadBackup,
+  onRestoreBackup,
+  restoreMode,
+  accountEmail,
+  restoreDisabledMessage,
+  onClose,
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [restoreView, setRestoreView] = useState<RestoreView>('select');
   const [backupState, setBackupState] = useState<AppState | null>(null);
@@ -23,6 +51,8 @@ export default function BackupRestoreModal({ onDownloadBackup, onRestoreBackup, 
   const [isDownloading, setIsDownloading] = useState(false);
   const [isReading, setIsReading] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreProgress, setRestoreProgress] = useState<CloudRestoreProgress | null>(null);
+  const isCloudRestore = restoreMode === 'cloud';
 
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -51,7 +81,7 @@ export default function BackupRestoreModal({ onDownloadBackup, onRestoreBackup, 
       const nextState = await readBackupFile(file);
       setBackupState(nextState);
       setBackupFilename(file.name);
-      setNotice('Backup verified and ready to restore.');
+      setNotice(`Backup verified: ${describeBackup(nextState)}.`);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'We could not read that backup file.');
       event.target.value = '';
@@ -65,16 +95,20 @@ export default function BackupRestoreModal({ onDownloadBackup, onRestoreBackup, 
 
     setIsRestoring(true);
     setErrorMessage('');
+    setRestoreProgress(null);
 
     try {
-      const safetyFilename = await onRestoreBackup(backupState);
-      setNotice(`Backup restored. Your previous vault was downloaded as ${safetyFilename}.`);
+      const safetyFilename = await onRestoreBackup(backupState, setRestoreProgress);
+      setNotice(isCloudRestore
+        ? `Cloud vault restored and synchronized. Your previous cloud vault was downloaded as ${safetyFilename}.`
+        : `Backup restored. Your previous vault was downloaded as ${safetyFilename}.`);
       setRestoreView('complete');
     } catch (error) {
-      setErrorMessage(getLocalBackupRestoreErrorMessage(error));
+      setErrorMessage(isCloudRestore ? getCloudRestoreErrorMessage(error) : getLocalBackupRestoreErrorMessage(error));
       setRestoreView('select');
     } finally {
       setIsRestoring(false);
+      setRestoreProgress(null);
     }
   };
 
@@ -107,18 +141,24 @@ export default function BackupRestoreModal({ onDownloadBackup, onRestoreBackup, 
             <button type="button" className="btn-primary" onClick={onClose}>Done</button>
           </div>
         ) : restoreView === 'confirm' && backupState ? (
-          <div className="backup-confirmation">
-            <div className="account-status account-status-error">
-              <ShieldCheck size={19} strokeWidth={2} aria-hidden="true" />
-              <div>
-                <strong>Replace this device's local vault?</strong>
-                <span>{backupFilename} will replace the people, gifts, and memories currently on this device.</span>
+            <div className="backup-confirmation">
+              <div className="account-status account-status-error">
+                <ShieldCheck size={19} strokeWidth={2} aria-hidden="true" />
+                <div>
+                  <strong>{isCloudRestore ? 'Replace this account’s cloud vault?' : 'Replace this device’s local vault?'}</strong>
+                  <span>{isCloudRestore
+                    ? `${backupFilename} will replace the people, gifts, and memories in ${accountEmail || 'this account'} and synchronize that replacement to other devices.`
+                    : `${backupFilename} will replace the people, gifts, and memories currently on this device.`}</span>
+                </div>
               </div>
-            </div>
-            <p className="backup-confirmation-note">A safety backup of your current vault will download first. Nothing is uploaded to Gift Vault or Supabase.</p>
+              <p className="backup-confirmation-note">{isCloudRestore
+                ? 'Gift Vault downloads a complete safety backup first, then stages and verifies this backup before replacing cloud records. This replacement is not a merge.'
+                : 'A safety backup of your current vault will download first. Nothing is uploaded to Gift Vault or Supabase.'}</p>
+              <p className="backup-notice">This backup contains {describeBackup(backupState)}.</p>
+              {isRestoring && isCloudRestore && <p className="backup-notice" role="status">{getProgressText(restoreProgress)}</p>}
             <div className="button-group backup-confirmation-actions">
               <button type="button" className="btn-primary" onClick={() => void handleRestore()} disabled={isRestoring}>
-                {isRestoring ? 'Restoring…' : 'Replace local data'}
+                {isRestoring ? 'Restoring…' : isCloudRestore ? 'Replace cloud vault' : 'Replace local data'}
               </button>
               <button type="button" className="btn-secondary" onClick={() => setRestoreView('select')} disabled={isRestoring}>Cancel</button>
             </div>
@@ -141,7 +181,9 @@ export default function BackupRestoreModal({ onDownloadBackup, onRestoreBackup, 
               <div className="backup-section-icon" aria-hidden="true"><FileUp size={19} strokeWidth={2} /></div>
               <div>
                 <h3>Restore backup</h3>
-                <p>Choose a Gift Vault backup file to replace the vault stored on this device.</p>
+                <p>{isCloudRestore
+                  ? 'Choose a Gift Vault backup to preview and replace this account’s cloud vault.'
+                  : 'Choose a Gift Vault backup file to replace the vault stored on this device.'}</p>
               </div>
               <input
                 ref={inputRef}

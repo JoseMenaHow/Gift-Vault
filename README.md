@@ -39,6 +39,25 @@ It adds server-managed revision timestamps and soft-delete markers to the existi
 
 For safe testing, use a second browser profile with the same test account: create and edit a gift in the first profile, then use **Refresh** in the second. Delete it in the first, refresh the second, and confirm it disappears. For simultaneous edits to the same item, Gift Vault retains the local change, reports a conflict, and offers a backup-first refresh instead of overwriting either version automatically.
 
+## Cloud Backup Restore Setup
+
+Cloud backup restore requires the import schema and cloud-sync migration above, plus [20261012000100_add_cloud_backup_restore.sql](./supabase/migrations/20261012000100_add_cloud_backup_restore.sql) and [20261012000200_add_revision_guarded_cloud_sync.sql](./supabase/migrations/20261012000200_add_revision_guarded_cloud_sync.sql).
+
+Run the migrations in this exact order:
+
+1. `20261011000100_create_gift_vault_import.sql`
+2. `20261011000200_add_cloud_sync_metadata.sql`
+3. `20261012000100_add_cloud_backup_restore.sql`
+4. `20261012000200_add_revision_guarded_cloud_sync.sql`
+
+Before running step 4, publish the Gift Vault client that uses the guarded sync RPC. Until that migration exists, this client keeps changes local and shows that cloud setup is required; it does not fall back to direct vault writes. Step 4 then revokes direct browser writes to vault-content tables, so older clients can retain local edits but cannot recreate cloud records after a restore.
+
+When signed in, **Backup & restore** validates the selected file, previews its record counts, downloads a portable safety copy of the current cloud vault (including private uploaded images), then stages the incoming images and records. Only after staging succeeds does an authenticated database function replace the account’s people, gifts, and memories in one transaction. An account revision check rejects a replacement when another device changes the vault during preparation. The old media files are deliberately retained rather than deleted during a restore, so a failure cannot remove them.
+
+### Disposable-data test
+
+Use a test account with two people, gifts with links and uploaded images, a delivered gift, birthday, tags, and a memory. Download a backup, change or remove several cloud records, then restore that backup while signed in. Confirm that a `gift-vault-cloud-safety-*.json` file downloads before the replacement, the restored account shows the original data after completion, and a second browser profile shows the same result after **Account → Refresh**. Test an unreadable image backup separately: the app should stop during staging with the existing cloud vault unchanged.
+
 ---
 
 # React + TypeScript + Vite

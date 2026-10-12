@@ -6,6 +6,7 @@ import { emptyState, getLocalStateSavedAt, loadState, replaceStoredState, saveSt
 import { clearDurableState, loadDurableState, saveDurableState } from './durableStorage';
 import { downloadBackup, getLatestLocalState } from './backup';
 import { LocalBackupRestoreError, restoreLocalBackup as restoreDeviceLocalBackup } from './localBackupRestore';
+import { CloudRestoreError, replaceCloudVaultFromBackup, type CloudRestoreProgress } from './cloudRestore';
 import { isSupabaseConfigured, supabase } from './supabase';
 import PeopleList from './components/PeopleList';
 import PersonDetail from './components/PersonDetail';
@@ -73,6 +74,7 @@ function App() {
   const [syncRetry, setSyncRetry] = useState(0);
   const cloudSnapshotRef = useRef<CloudSnapshot | null>(null);
   const syncInFlightRef = useRef(false);
+  const cloudRestoreInProgressRef = useRef(false);
   const currentStateRef = useRef(state);
   const authUserId = authUser?.id;
 
@@ -221,6 +223,7 @@ function App() {
     if (!authUserId || persistenceAccountId !== authUserId || isCloudWorkspaceLoading) return;
     const snapshot = cloudSnapshotRef.current;
     if (!snapshot
+      || cloudRestoreInProgressRef.current
       || syncInFlightRef.current
       || syncStatus === 'conflict'
       || syncStatus === 'pending'
@@ -457,6 +460,38 @@ function App() {
     return safetyBackupFilename;
   };
 
+  const restoreCloudBackup = async (restoredState: AppState, onProgress?: (progress: CloudRestoreProgress) => void) => {
+    if (!authUser || persistenceAccountId !== authUser.id || !cloudSnapshotRef.current) {
+      throw new CloudRestoreError('Your cloud vault is still loading. Wait for it to finish before restoring a backup.');
+    }
+    if (syncStatus !== 'synced' || syncInFlightRef.current) {
+      throw new CloudRestoreError('Resolve any pending cloud sync changes before replacing this cloud vault. Your backup has not been applied.');
+    }
+
+    cloudRestoreInProgressRef.current = true;
+    setSyncStatus('saving');
+    setSyncMessage('Replacing this cloud vault from a backup…');
+    try {
+      const result = await replaceCloudVaultFromBackup({
+        ownerId: authUser.id,
+        state: restoredState,
+        onProgress,
+      });
+      cloudSnapshotRef.current = result.snapshot;
+      saveCloudSyncCache(authUser.id, { snapshot: result.snapshot, pending: false });
+      setState(result.snapshot.state);
+      setSyncStatus('synced');
+      setSyncMessage('');
+      return result.safetyBackupFilename;
+    } catch (error) {
+      setSyncStatus('synced');
+      setSyncMessage('');
+      throw error;
+    } finally {
+      cloudRestoreInProgressRef.current = false;
+    }
+  };
+
   const retryCloudSync = () => {
     if (!authUser || !cloudSnapshotRef.current) return;
     setSyncStatus('synced');
@@ -688,9 +723,11 @@ function App() {
       {isBackupModalOpen && (
         <BackupRestoreModal
           onDownloadBackup={downloadLocalBackup}
-          onRestoreBackup={restoreLocalBackup}
-          restoreDisabledMessage={authUser
-            ? 'To protect your cloud vault, sign out before restoring a local backup. Afterward, use Import local vault if you want to add it to an empty account.'
+          onRestoreBackup={authUser ? restoreCloudBackup : restoreLocalBackup}
+          restoreMode={authUser ? 'cloud' : 'local'}
+          accountEmail={authUser?.email}
+          restoreDisabledMessage={authUser && (syncStatus !== 'synced' || syncInFlightRef.current)
+            ? 'Finish or resolve any pending cloud sync changes before replacing this cloud vault. Your backup will not be uploaded until then.'
             : undefined}
           onClose={() => setIsBackupModalOpen(false)}
         />

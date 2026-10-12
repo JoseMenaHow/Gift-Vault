@@ -1,4 +1,5 @@
-import type { AppState, GiftIdea, Memory, Person } from './types';
+import type { AppState } from './types';
+import { loadCloudVault, synchronizeCloudVault, type CloudMediaReference } from './cloudSync';
 import { supabase } from './supabase';
 
 const MEDIA_BUCKET = 'gift-vault-media';
@@ -31,10 +32,7 @@ type CloudImport = {
   status: 'in_progress' | 'completed';
 };
 
-type PreparedMedia = {
-  externalUrl: string | null;
-  storagePath: string | null;
-};
+type PreparedMedia = CloudMediaReference;
 
 function getClient() {
   if (!supabase) throw new Error('Supabase is not configured.');
@@ -81,7 +79,8 @@ function storageSafeId(value: string) {
 function isSchemaMissingError(error: { code?: string; message?: string }) {
   return error.code === '42P01'
     || error.code === 'PGRST205'
-    || /could not find the table|relation .* does not exist/i.test(error.message || '');
+    || error.code === 'PGRST202'
+    || /could not find the table|could not find the function|relation .* does not exist|apply_gift_vault_sync/i.test(error.message || '');
 }
 
 export function getLocalVaultCounts(state: AppState): LocalVaultCounts {
@@ -153,9 +152,9 @@ async function uploadMedia(
   category: 'people' | 'gifts',
   entityId: string,
   sourceUrl: string | undefined,
-) : Promise<PreparedMedia> {
-  if (!sourceUrl) return { externalUrl: null, storagePath: null };
-  if (!hasLocalMedia(sourceUrl)) return { externalUrl: sourceUrl, storagePath: null };
+): Promise<PreparedMedia> {
+  if (!sourceUrl) return { sourceUrl: null, storagePath: null };
+  if (!hasLocalMedia(sourceUrl)) return { sourceUrl, storagePath: null };
 
   let image: Blob;
   try {
@@ -185,68 +184,7 @@ async function uploadMedia(
   });
 
   if (error) throw error;
-  return { externalUrl: null, storagePath: path };
-}
-
-async function upsertPeople(ownerId: string, sourceId: string, people: Person[], media: Map<string, PreparedMedia>) {
-  if (people.length === 0) return;
-
-  const rows = people.map((person) => ({
-    owner_id: ownerId,
-    id: person.id,
-    name: person.name,
-    tags: person.tags || [],
-    photo_url: media.get(person.id)?.externalUrl || null,
-    photo_storage_path: media.get(person.id)?.storagePath || null,
-    emoji: person.emoji || null,
-    label_text: person.labelText || null,
-    birthday: person.birthday || null,
-    import_source_id: sourceId,
-  }));
-  const { error } = await getClient()
-    .from(PEOPLE_TABLE)
-    .upsert(rows, { onConflict: 'owner_id,id', ignoreDuplicates: true });
-  if (error) throw error;
-}
-
-async function upsertGifts(ownerId: string, sourceId: string, gifts: GiftIdea[], media: Map<string, PreparedMedia>) {
-  if (gifts.length === 0) return;
-
-  const rows = gifts.map((gift) => ({
-    owner_id: ownerId,
-    id: gift.id,
-    person_id: gift.personId,
-    title: gift.title,
-    description: gift.description || null,
-    links: gift.links || [],
-    occasion_tags: gift.occasionTags || [],
-    image_url: media.get(gift.id)?.externalUrl || null,
-    image_storage_path: media.get(gift.id)?.storagePath || null,
-    created_at: gift.createdAt,
-    gifted_at: gift.giftedAt || null,
-    import_source_id: sourceId,
-  }));
-  const { error } = await getClient()
-    .from(GIFTS_TABLE)
-    .upsert(rows, { onConflict: 'owner_id,id', ignoreDuplicates: true });
-  if (error) throw error;
-}
-
-async function upsertMemories(ownerId: string, sourceId: string, memories: Memory[]) {
-  if (memories.length === 0) return;
-
-  const rows = memories.map((memory) => ({
-    owner_id: ownerId,
-    id: memory.id,
-    person_id: memory.personId,
-    text: memory.text,
-    created_at: memory.createdAt,
-    import_source_id: sourceId,
-  }));
-  const { error } = await getClient()
-    .from(MEMORIES_TABLE)
-    .upsert(rows, { onConflict: 'owner_id,id', ignoreDuplicates: true });
-  if (error) throw error;
+  return { sourceUrl: null, storagePath: path };
 }
 
 async function getImportedIds(ownerId: string, sourceId: string, table: string) {
@@ -321,19 +259,22 @@ export async function importLocalVault({
 
   state.people.forEach((person) => {
     if (!peopleMedia.has(person.id) && person.photoUrl && !hasLocalMedia(person.photoUrl)) {
-      peopleMedia.set(person.id, { externalUrl: person.photoUrl, storagePath: null });
+      peopleMedia.set(person.id, { sourceUrl: person.photoUrl, storagePath: null });
     }
   });
   state.ideas.forEach((gift) => {
     if (!giftMedia.has(gift.id) && gift.imageUrl && !hasLocalMedia(gift.imageUrl)) {
-      giftMedia.set(gift.id, { externalUrl: gift.imageUrl, storagePath: null });
+      giftMedia.set(gift.id, { sourceUrl: gift.imageUrl, storagePath: null });
     }
   });
 
   onProgress?.({ step: 'importing-records' });
-  await upsertPeople(ownerId, sourceId, state.people, peopleMedia);
-  await upsertGifts(ownerId, sourceId, state.ideas, giftMedia);
-  await upsertMemories(ownerId, sourceId, state.memories);
+  const snapshot = await loadCloudVault(ownerId);
+  await synchronizeCloudVault(ownerId, state, snapshot, {
+    personMedia: peopleMedia,
+    giftMedia,
+    importSourceId: sourceId,
+  });
 
   const storagePaths = [...peopleMedia.values(), ...giftMedia.values()]
     .map((media) => media.storagePath)

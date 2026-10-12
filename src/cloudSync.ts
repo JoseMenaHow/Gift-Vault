@@ -20,11 +20,68 @@ type CloudRecordMeta = MediaMeta & {
   deletedAt?: string | null;
 };
 
+export type CloudMediaReference = {
+  sourceUrl: string | null;
+  storagePath: string | null;
+};
+
+type SyncDelete = {
+  id: string;
+  expectedUpdatedAt: string;
+};
+
+type SyncPerson = {
+  id: string;
+  name: string;
+  tags: string[];
+  photoUrl: string | null;
+  photoStoragePath: string | null;
+  emoji: string | null;
+  labelText: string | null;
+  birthday: string | null;
+  importSourceId?: string;
+};
+
+type SyncGift = {
+  id: string;
+  personId: string;
+  title: string;
+  description: string | null;
+  links: string[];
+  occasionTags: string[];
+  imageUrl: string | null;
+  imageStoragePath: string | null;
+  createdAt: string;
+  giftedAt: string | null;
+  importSourceId?: string;
+};
+
+type SyncMemory = {
+  id: string;
+  personId: string;
+  text: string;
+  createdAt: string;
+  importSourceId?: string;
+};
+
+type CloudSyncPayload = {
+  people: { create: SyncPerson[]; update: Array<SyncPerson & { expectedUpdatedAt: string }>; delete: SyncDelete[] };
+  gifts: { create: SyncGift[]; update: Array<SyncGift & { expectedUpdatedAt: string }>; delete: SyncDelete[] };
+  memories: { create: SyncMemory[]; update: Array<SyncMemory & { expectedUpdatedAt: string }>; delete: SyncDelete[] };
+};
+
+export type CloudSyncOptions = {
+  personMedia?: Map<string, CloudMediaReference>;
+  giftMedia?: Map<string, CloudMediaReference>;
+  importSourceId?: string;
+};
+
 export type CloudSnapshot = {
   state: AppState;
   people: Record<string, CloudRecordMeta>;
   gifts: Record<string, CloudRecordMeta>;
   memories: Record<string, CloudRecordMeta>;
+  revision?: number;
 };
 
 export type CloudSyncCache = {
@@ -192,11 +249,26 @@ async function loadRows(ownerId: string, table: string) {
   return (data || []) as CloudRow[];
 }
 
+async function loadVaultRevision(ownerId: string) {
+  const { data, error } = await getClient()
+    .from('gift_vault_vault_revisions')
+    .select('revision')
+    .eq('owner_id', ownerId)
+    .maybeSingle<{ revision: number }>();
+
+  if (error) {
+    if (/vault_revisions|does not exist|schema cache/i.test(error.message || '')) return undefined;
+    throw error;
+  }
+  return data?.revision ?? 0;
+}
+
 export async function loadCloudVault(ownerId: string): Promise<CloudSnapshot> {
-  const [peopleRows, giftRows, memoryRows] = await Promise.all([
+  const [peopleRows, giftRows, memoryRows, revision] = await Promise.all([
     loadRows(ownerId, PEOPLE_TABLE),
     loadRows(ownerId, GIFTS_TABLE),
     loadRows(ownerId, MEMORIES_TABLE),
+    loadVaultRevision(ownerId),
   ]);
 
   const people: Person[] = [];
@@ -227,6 +299,7 @@ export async function loadCloudVault(ownerId: string): Promise<CloudSnapshot> {
     people: peopleMeta,
     gifts: giftsMeta,
     memories: memoriesMeta,
+    revision,
   };
 }
 
@@ -286,7 +359,9 @@ async function resolveMedia(
   id: string,
   url: string | undefined,
   previous?: CloudRecordMeta,
-) {
+  prepared?: CloudMediaReference,
+): Promise<CloudMediaReference> {
+  if (prepared) return prepared;
   if (previous && url === previous.displayUrl) {
     return { sourceUrl: previous.sourceUrl || null, storagePath: previous.storagePath || null };
   }
@@ -295,132 +370,148 @@ async function resolveMedia(
   return { sourceUrl: null, storagePath: await uploadLocalMedia(ownerId, category, id, url) };
 }
 
-async function insertRow(table: string, row: Record<string, unknown>) {
-  const { data, error } = await getClient().from(table).insert(row).select('*');
-  if (error) {
-    if (error.code === '23505') throw new CloudSyncConflictError();
-    throw error;
-  }
-  if (!data || data.length !== 1) throw new CloudSyncConflictError();
-}
-
-async function updateRow(table: string, ownerId: string, id: string, expectedUpdatedAt: string, updates: Record<string, unknown>) {
-  const { data, error } = await getClient()
-    .from(table)
-    .update(updates)
-    .eq('owner_id', ownerId)
-    .eq('id', id)
-    .eq('updated_at', expectedUpdatedAt)
-    .is('deleted_at', null)
-    .select('*');
-  if (error) throw error;
-  if (!data || data.length !== 1) throw new CloudSyncConflictError();
-}
-
-async function deleteRow(table: string, ownerId: string, id: string, expectedUpdatedAt: string) {
-  await updateRow(table, ownerId, id, expectedUpdatedAt, { deleted_at: new Date().toISOString() });
-}
-
 function mapById<T extends { id: string }>(values: T[]) {
   return new Map(values.map((value) => [value.id, value]));
 }
 
-async function syncPeople(ownerId: string, next: AppState, snapshot: CloudSnapshot) {
+async function buildPeopleChanges(
+  ownerId: string,
+  next: AppState,
+  snapshot: CloudSnapshot,
+  options: CloudSyncOptions,
+): Promise<CloudSyncPayload['people']> {
+  const changes: CloudSyncPayload['people'] = { create: [], update: [], delete: [] };
   const current = mapById(snapshot.state.people);
 
   for (const person of next.people) {
     const existing = current.get(person.id);
     const meta = snapshot.people[person.id];
     if (!existing && !meta) {
-      const media = await resolveMedia(ownerId, 'people', person.id, person.photoUrl);
-      await insertRow(PEOPLE_TABLE, {
-        owner_id: ownerId, id: person.id, name: person.name, tags: person.tags || [],
-        photo_url: media.sourceUrl, photo_storage_path: media.storagePath,
-        emoji: person.emoji || null, label_text: person.labelText || null, birthday: person.birthday || null,
-        import_source_id: 'sync',
+      const media = await resolveMedia(ownerId, 'people', person.id, person.photoUrl, undefined, options.personMedia?.get(person.id));
+      changes.create.push({
+        id: person.id, name: person.name, tags: person.tags || [], photoUrl: media.sourceUrl,
+        photoStoragePath: media.storagePath, emoji: person.emoji || null, labelText: person.labelText || null,
+        birthday: person.birthday || null, importSourceId: options.importSourceId,
       });
       continue;
     }
     if (!existing || !meta || meta.deletedAt) throw new CloudSyncConflictError();
     if (samePerson(person, existing, meta)) continue;
 
-    const media = await resolveMedia(ownerId, 'people', person.id, person.photoUrl, meta);
-    await updateRow(PEOPLE_TABLE, ownerId, person.id, meta.updatedAt, {
-      name: person.name, tags: person.tags || [], photo_url: media.sourceUrl,
-      photo_storage_path: media.storagePath, emoji: person.emoji || null,
-      label_text: person.labelText || null, birthday: person.birthday || null,
+    const media = await resolveMedia(ownerId, 'people', person.id, person.photoUrl, meta, options.personMedia?.get(person.id));
+    changes.update.push({
+      id: person.id, name: person.name, tags: person.tags || [], photoUrl: media.sourceUrl,
+      photoStoragePath: media.storagePath, emoji: person.emoji || null, labelText: person.labelText || null,
+      birthday: person.birthday || null, expectedUpdatedAt: meta.updatedAt,
     });
   }
+  for (const person of snapshot.state.people) {
+    if (!next.people.some((candidate) => candidate.id === person.id)) {
+      changes.delete.push({ id: person.id, expectedUpdatedAt: snapshot.people[person.id].updatedAt });
+    }
+  }
+  return changes;
 }
 
-async function syncGifts(ownerId: string, next: AppState, snapshot: CloudSnapshot) {
+async function buildGiftChanges(
+  ownerId: string,
+  next: AppState,
+  snapshot: CloudSnapshot,
+  options: CloudSyncOptions,
+): Promise<CloudSyncPayload['gifts']> {
+  const changes: CloudSyncPayload['gifts'] = { create: [], update: [], delete: [] };
   const current = mapById(snapshot.state.ideas);
   for (const gift of next.ideas) {
     const existing = current.get(gift.id);
     const meta = snapshot.gifts[gift.id];
     if (!existing && !meta) {
-      const media = await resolveMedia(ownerId, 'gifts', gift.id, gift.imageUrl);
-      await insertRow(GIFTS_TABLE, {
-        owner_id: ownerId, id: gift.id, person_id: gift.personId, title: gift.title,
-        description: gift.description || null, links: gift.links || [], occasion_tags: gift.occasionTags || [],
-        image_url: media.sourceUrl, image_storage_path: media.storagePath, created_at: gift.createdAt,
-        gifted_at: gift.giftedAt || null, import_source_id: 'sync',
+      const media = await resolveMedia(ownerId, 'gifts', gift.id, gift.imageUrl, undefined, options.giftMedia?.get(gift.id));
+      changes.create.push({
+        id: gift.id, personId: gift.personId, title: gift.title, description: gift.description || null,
+        links: gift.links || [], occasionTags: gift.occasionTags || [], imageUrl: media.sourceUrl,
+        imageStoragePath: media.storagePath, createdAt: gift.createdAt, giftedAt: gift.giftedAt || null,
+        importSourceId: options.importSourceId,
       });
       continue;
     }
     if (!existing || !meta || meta.deletedAt) throw new CloudSyncConflictError();
     if (sameGift(gift, existing, meta)) continue;
 
-    const media = await resolveMedia(ownerId, 'gifts', gift.id, gift.imageUrl, meta);
-    await updateRow(GIFTS_TABLE, ownerId, gift.id, meta.updatedAt, {
-      person_id: gift.personId, title: gift.title, description: gift.description || null,
-      links: gift.links || [], occasion_tags: gift.occasionTags || [],
-      image_url: media.sourceUrl, image_storage_path: media.storagePath, gifted_at: gift.giftedAt || null,
+    const media = await resolveMedia(ownerId, 'gifts', gift.id, gift.imageUrl, meta, options.giftMedia?.get(gift.id));
+    changes.update.push({
+      id: gift.id, personId: gift.personId, title: gift.title, description: gift.description || null,
+      links: gift.links || [], occasionTags: gift.occasionTags || [], imageUrl: media.sourceUrl,
+      imageStoragePath: media.storagePath, createdAt: gift.createdAt, giftedAt: gift.giftedAt || null,
+      expectedUpdatedAt: meta.updatedAt,
     });
   }
+  for (const gift of snapshot.state.ideas) {
+    if (!next.ideas.some((candidate) => candidate.id === gift.id)) {
+      changes.delete.push({ id: gift.id, expectedUpdatedAt: snapshot.gifts[gift.id].updatedAt });
+    }
+  }
+  return changes;
 }
 
-async function syncMemories(ownerId: string, next: AppState, snapshot: CloudSnapshot) {
+function buildMemoryChanges(next: AppState, snapshot: CloudSnapshot, options: CloudSyncOptions): CloudSyncPayload['memories'] {
+  const changes: CloudSyncPayload['memories'] = { create: [], update: [], delete: [] };
   const current = mapById(snapshot.state.memories);
   for (const memory of next.memories) {
     const existing = current.get(memory.id);
     const meta = snapshot.memories[memory.id];
     if (!existing && !meta) {
-      await insertRow(MEMORIES_TABLE, {
-        owner_id: ownerId, id: memory.id, person_id: memory.personId, text: memory.text,
-        created_at: memory.createdAt, import_source_id: 'sync',
+      changes.create.push({
+        id: memory.id, personId: memory.personId, text: memory.text, createdAt: memory.createdAt,
+        importSourceId: options.importSourceId,
       });
       continue;
     }
     if (!existing || !meta || meta.deletedAt) throw new CloudSyncConflictError();
     if (sameMemory(memory, existing)) continue;
-    await updateRow(MEMORIES_TABLE, ownerId, memory.id, meta.updatedAt, {
-      person_id: memory.personId, text: memory.text,
+    changes.update.push({
+      id: memory.id, personId: memory.personId, text: memory.text, createdAt: memory.createdAt,
+      expectedUpdatedAt: meta.updatedAt,
     });
   }
-}
-
-async function syncDeletes(ownerId: string, next: AppState, snapshot: CloudSnapshot) {
-  const people = new Set(next.people.map((person) => person.id));
-  const gifts = new Set(next.ideas.map((gift) => gift.id));
-  const memories = new Set(next.memories.map((memory) => memory.id));
-
-  for (const gift of snapshot.state.ideas) {
-    if (!gifts.has(gift.id)) await deleteRow(GIFTS_TABLE, ownerId, gift.id, snapshot.gifts[gift.id].updatedAt);
-  }
   for (const memory of snapshot.state.memories) {
-    if (!memories.has(memory.id)) await deleteRow(MEMORIES_TABLE, ownerId, memory.id, snapshot.memories[memory.id].updatedAt);
+    if (!next.memories.some((candidate) => candidate.id === memory.id)) {
+      changes.delete.push({ id: memory.id, expectedUpdatedAt: snapshot.memories[memory.id].updatedAt });
+    }
   }
-  for (const person of snapshot.state.people) {
-    if (!people.has(person.id)) await deleteRow(PEOPLE_TABLE, ownerId, person.id, snapshot.people[person.id].updatedAt);
-  }
+  return changes;
 }
 
-export async function synchronizeCloudVault(ownerId: string, next: AppState, snapshot: CloudSnapshot) {
-  await syncPeople(ownerId, next, snapshot);
-  await syncGifts(ownerId, next, snapshot);
-  await syncMemories(ownerId, next, snapshot);
-  await syncDeletes(ownerId, next, snapshot);
+function isStaleSyncError(error: { code?: string; message?: string }) {
+  return error.code === '40001' || /cloud data changed|stale cloud sync/i.test(error.message || '');
+}
+
+export async function synchronizeCloudVault(
+  ownerId: string,
+  next: AppState,
+  snapshot: CloudSnapshot,
+  options: CloudSyncOptions = {},
+) {
+  if (snapshot.revision === undefined) {
+    throw new CloudSyncConflictError();
+  }
+
+  const [people, gifts] = await Promise.all([
+    buildPeopleChanges(ownerId, next, snapshot, options),
+    buildGiftChanges(ownerId, next, snapshot, options),
+  ]);
+  const changes: CloudSyncPayload = {
+    people,
+    gifts,
+    memories: buildMemoryChanges(next, snapshot, options),
+  };
+  const { error } = await getClient().rpc('apply_gift_vault_sync', {
+    p_expected_revision: snapshot.revision,
+    p_changes: changes,
+  });
+  if (error) {
+    if (isStaleSyncError(error)) throw new CloudSyncConflictError();
+    throw error;
+  }
   return loadCloudVault(ownerId);
 }
 
@@ -437,7 +528,7 @@ export function getCloudSyncErrorMessage(error: unknown) {
     if (/network|fetch|offline|failed to fetch/i.test(message)) {
       return 'Changes are safely saved on this device and will be ready to retry when you are back online.';
     }
-    if (/updated_at|deleted_at|column|schema cache/i.test(message)) {
+    if (/updated_at|deleted_at|apply_gift_vault_sync|vault_revisions|column|schema cache|permission denied/i.test(message)) {
       return 'Cloud sync needs the latest Gift Vault Supabase migration before it can continue.';
     }
   }

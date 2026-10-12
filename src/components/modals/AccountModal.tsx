@@ -332,8 +332,8 @@ export default function AccountModal({
 
         <div className="account-backup-section">
           <div>
-            <strong>Local backup</strong>
-            <span>Download or restore this device's Gift Vault data.</span>
+            <strong>{email ? 'Vault backup' : 'Local backup'}</strong>
+            <span>{email ? 'Download a backup or replace this account’s cloud vault.' : 'Download or restore this device’s Gift Vault data.'}</span>
           </div>
           <button type="button" className="account-backup-button" onClick={onOpenBackup}>
             <Download size={17} strokeWidth={2} aria-hidden="true" />

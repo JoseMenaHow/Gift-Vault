@@ -118,7 +118,7 @@ export function createBackup(state: AppState): GiftVaultBackup {
   };
 }
 
-export function getBackupFilename(kind: 'backup' | 'safety' | 'migration-safety' = 'backup') {
+export function getBackupFilename(kind: 'backup' | 'safety' | 'migration-safety' | 'cloud-safety' = 'backup') {
   const now = new Date();
   const date = [
     now.getFullYear(),
@@ -128,7 +128,7 @@ export function getBackupFilename(kind: 'backup' | 'safety' | 'migration-safety'
   return `gift-vault-${kind}-${date}.json`;
 }
 
-export function downloadBackup(state: AppState, kind: 'backup' | 'safety' | 'migration-safety' = 'backup') {
+export function downloadBackup(state: AppState, kind: 'backup' | 'safety' | 'migration-safety' | 'cloud-safety' = 'backup') {
   const contents = JSON.stringify(createBackup(state), null, 2);
   const file = new Blob([contents], { type: 'application/json' });
   const url = URL.createObjectURL(file);
