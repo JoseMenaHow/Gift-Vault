@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarPlus, Pencil, Trash2 } from 'lucide-react';
+import { CalendarDays, CalendarPlus, Leaf, Pencil, Trash2 } from 'lucide-react';
 import type { Person, Memory, GiftIdea } from '../types';
 import Tabs from './Tabs';
 import OverflowMenu from './OverflowMenu';
@@ -104,6 +104,10 @@ export default function PersonDetail({
       </button>
 
       <section className="person-hero">
+        <div className="person-hero-botanical" aria-hidden="true">
+          <Leaf size={70} strokeWidth={1.15} />
+          <Leaf size={48} strokeWidth={1.15} />
+        </div>
         <div className="person-hero-menu">
           <OverflowMenu
             onEdit={() => onEditPerson(person)}
@@ -158,6 +162,7 @@ export default function PersonDetail({
               onClick={openBirthdayEditor}
               aria-label={`Edit birthday, ${formatBirthday(person.birthday)}`}
             >
+              <CalendarDays size={14} strokeWidth={1.8} aria-hidden="true" />
               <span>Birthday · {formatBirthday(person.birthday)}</span>
               <Pencil size={13} strokeWidth={2} aria-hidden="true" />
             </button>

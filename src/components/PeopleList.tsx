@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarHeart, CircleUserRound, Tags } from 'lucide-react';
+import { CalendarHeart, CircleUserRound, Gift, Plus, Search, Tags } from 'lucide-react';
 import type { Person, GiftIdea } from '../types';
 import OverflowMenu from './OverflowMenu';
 import { getTagColorClassName } from '../tagColors';
@@ -78,23 +78,32 @@ export default function PeopleList({
   return (
     <div className="people-page">
       <header className="people-header">
-        <div>
-          <p className="page-eyebrow">Gift vault</p>
-          <h1 className="page-title">My people</h1>
-        </div>
-        <div className="people-header-actions">
+        <div className="people-brand-row">
+          <div className="vault-brand" aria-label="Gift Vault">
+            <span className="vault-brand-mark" aria-hidden="true">
+              <Gift size={18} strokeWidth={1.8} />
+            </span>
+            <span className="vault-brand-name">Gift Vault</span>
+          </div>
           <button
             type="button"
             className="account-button"
             onClick={onOpenAccount}
             aria-label={accountEmail ? `Account: ${accountEmail}` : 'Open account'}
           >
-            <CircleUserRound size={17} strokeWidth={2} aria-hidden="true" />
+            <CircleUserRound size={17} strokeWidth={1.8} aria-hidden="true" />
             <span>{isAuthLoading ? 'Account' : accountEmail ? 'Account' : isSupabaseConfigured ? 'Sign in' : 'Account'}</span>
           </button>
+        </div>
+
+        <div className="people-heading-row">
+          <div className="people-heading-copy">
+            <h1 className="page-title">My People</h1>
+            <p className="people-heading-description">Thoughtful ideas for your favorite people.</p>
+          </div>
           {people.length > 0 && (
             <button className="add-person-button" onClick={onAddPerson}>
-              <span aria-hidden="true">+</span>
+              <Plus size={17} strokeWidth={2} aria-hidden="true" />
               Add
             </button>
           )}
@@ -104,6 +113,7 @@ export default function PeopleList({
       {birthdayNudge && (
         <WorkspaceNudge
           icon={<CalendarHeart size={18} strokeWidth={2} />}
+          label="Coming up"
           onClick={() => onOpenPersonIdeas(birthdayNudge.personId)}
           ariaLabel={`Open gift ideas for ${birthdayNudge.message}`}
         >
@@ -124,14 +134,17 @@ export default function PeopleList({
         <>
           <section className="people-finder" aria-label="Find people">
             <div className="people-search-row">
-              <input
-                type="search"
-                className="people-search"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search people"
-                aria-label="Search people by name"
-              />
+              <div className="people-search-control">
+                <Search className="people-search-icon" size={17} strokeWidth={1.8} aria-hidden="true" />
+                <input
+                  type="search"
+                  className="people-search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search people"
+                  aria-label="Search people by name"
+                />
+              </div>
               {availableTags.length > 0 && (
                 <button
                   type="button"
