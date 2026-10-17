@@ -173,26 +173,22 @@ h3 {
 .vault-brand {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   color: var(--text-heading);
 }
 
 .vault-brand-mark {
-  display: grid;
   width: 34px;
   height: 34px;
-  place-items: center;
-  border: 1px solid var(--peach-border);
   border-radius: var(--radius-control);
-  background: var(--peach-soft);
-  color: var(--peach-strong);
-  box-shadow: 0 4px 12px rgba(147, 99, 79, 0.08);
+  flex: 0 0 34px;
+  object-fit: cover;
 }
 
 .vault-brand-name {
-  font-family: var(--font-display);
-  font-size: 19px;
-  font-weight: 600;
+  font-family: 'Nunito', var(--font-sans);
+  font-size: 20px;
+  font-weight: 700;
   line-height: 1;
 }
 

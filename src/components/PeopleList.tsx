@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarHeart, CircleUserRound, Gift, Plus, Search, Tags } from 'lucide-react';
+import { CalendarHeart, CircleUserRound, Plus, Search, Tags } from 'lucide-react';
 import type { Person, GiftIdea } from '../types';
 import OverflowMenu from './OverflowMenu';
 import { getTagColorClassName } from '../tagColors';
@@ -80,10 +80,13 @@ export default function PeopleList({
       <header className="people-header">
         <div className="people-brand-row">
           <div className="vault-brand" aria-label="Gift Vault">
-            <span className="vault-brand-mark" aria-hidden="true">
-              <Gift size={18} strokeWidth={1.8} />
-            </span>
-            <span className="vault-brand-name">Gift Vault</span>
+            <img
+              className="vault-brand-mark"
+              src="/gift-vault-192.png"
+              alt=""
+              aria-hidden="true"
+            />
+            <span className="vault-brand-name">gift vault.</span>
           </div>
           <button
             type="button"

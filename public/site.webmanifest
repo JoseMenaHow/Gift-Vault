@@ -1,0 +1,24 @@
+{
+  "name": "Gift Vault",
+  "short_name": "Gift Vault",
+  "description": "Keep thoughtful gift ideas for the people you care about.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f4ea",
+  "theme_color": "#99a58f",
+  "icons": [
+    {
+      "src": "/gift-vault-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/gift-vault-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
