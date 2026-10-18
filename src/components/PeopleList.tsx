@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { CalendarHeart, CircleUserRound, Plus, Search, Tags } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { CalendarHeart, CircleUserRound, Gift, Plus, Search, Tags, UserPlus } from 'lucide-react';
 import type { Person, GiftIdea } from '../types';
 import OverflowMenu from './OverflowMenu';
 import { getTagColorClassName } from '../tagColors';
@@ -16,6 +16,7 @@ interface Props {
   onSelectPerson: (personId: string) => void;
   onOpenPersonIdeas: (personId: string) => void;
   onAddPerson: () => void;
+  onAddIdea: () => void;
   onEditPerson: (person: Person) => void;
   onDeletePerson: (personId: string) => void;
   accountEmail?: string;
@@ -32,6 +33,7 @@ export default function PeopleList({
   onSelectPerson,
   onOpenPersonIdeas,
   onAddPerson,
+  onAddIdea,
   onEditPerson,
   onDeletePerson,
   accountEmail,
@@ -42,6 +44,37 @@ export default function PeopleList({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isTagFilterOpen, setIsTagFilterOpen] = useState(false);
+  const [isCreationMenuOpen, setIsCreationMenuOpen] = useState(false);
+  const creationMenuRef = useRef<HTMLDivElement>(null);
+  const creationButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isCreationMenuOpen) return;
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      creationMenuRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    });
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!creationMenuRef.current?.contains(target) && !creationButtonRef.current?.contains(target)) {
+        setIsCreationMenuOpen(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setIsCreationMenuOpen(false);
+      creationButtonRef.current?.focus();
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isCreationMenuOpen]);
 
   const getIdeaCount = (personId: string) => {
     return ideas.filter(i => i.personId === personId && !i.giftedAt).length;
@@ -254,9 +287,6 @@ export default function PeopleList({
                         )}
                       </div>
                     )}
-                    {person.labelText && (
-                      <span className="person-label">{person.labelText}</span>
-                    )}
                   </div>
                   <div className="person-card-actions">
                     <OverflowMenu
@@ -279,16 +309,56 @@ export default function PeopleList({
       )}
 
       {people.length > 0 && (
-        <button className="fab mobile-fab" onClick={onAddPerson} aria-label="Add person">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M12 5v14M5 12h14"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
+        <>
+          {isCreationMenuOpen && (
+            <div ref={creationMenuRef} className="mobile-creation-menu" role="menu" aria-label="Create">
+              <button
+                type="button"
+                className="mobile-creation-option"
+                role="menuitem"
+                onClick={() => {
+                  setIsCreationMenuOpen(false);
+                  onAddPerson();
+                }}
+              >
+                <span className="mobile-creation-option-icon" aria-hidden="true">
+                  <UserPlus size={18} strokeWidth={1.9} />
+                </span>
+                <span>
+                  <strong>Add person</strong>
+                  <small>Someone to remember</small>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="mobile-creation-option"
+                role="menuitem"
+                onClick={() => {
+                  setIsCreationMenuOpen(false);
+                  onAddIdea();
+                }}
+              >
+                <span className="mobile-creation-option-icon" aria-hidden="true">
+                  <Gift size={18} strokeWidth={1.9} />
+                </span>
+                <span>
+                  <strong>Add gift idea</strong>
+                  <small>Choose who it is for</small>
+                </span>
+              </button>
+            </div>
+          )}
+          <button
+            ref={creationButtonRef}
+            className={`fab mobile-fab${isCreationMenuOpen ? ' is-open' : ''}`}
+            onClick={() => setIsCreationMenuOpen((isOpen) => !isOpen)}
+            aria-label={isCreationMenuOpen ? 'Close creation menu' : 'Create new'}
+            aria-expanded={isCreationMenuOpen}
+            aria-haspopup="menu"
+          >
+            <Plus size={25} strokeWidth={2} aria-hidden="true" />
+          </button>
+        </>
       )}
     </div>
   );

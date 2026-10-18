@@ -55,6 +55,7 @@ function App() {
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
   const [editingIdea, setEditingIdea] = useState<GiftIdea | null>(null);
+  const [isChoosingIdeaRecipient, setIsChoosingIdeaRecipient] = useState(false);
   const [isPersistenceReady, setIsPersistenceReady] = useState(false);
   const [ideasTabRequest, setIdeasTabRequest] = useState(0);
   const [selectedGiftId, setSelectedGiftId] = useState<string | null>(null);
@@ -340,6 +341,7 @@ function App() {
     }
     setActiveModal(null);
     setEditingIdea(null);
+    setIsChoosingIdeaRecipient(false);
   };
 
   const deletePerson = (personId: string) => {
@@ -426,6 +428,7 @@ function App() {
 
   const handleEditIdea = (idea: GiftIdea) => {
     setEditingIdea(idea);
+    setIsChoosingIdeaRecipient(false);
     setActiveModal('addIdea');
   };
 
@@ -434,6 +437,7 @@ function App() {
     setEditingPerson(null);
     setEditingMemory(null);
     setEditingIdea(null);
+    setIsChoosingIdeaRecipient(false);
   };
 
   const downloadLocalBackup = async () => {
@@ -539,6 +543,10 @@ function App() {
   const availableOccasionTags = Array.from(
     new Set(state.ideas.flatMap((idea) => idea.occasionTags || []))
   ).sort((first, second) => first.localeCompare(second));
+  const localImportState = loadState();
+  const hasLocalVaultToImport = localImportState.people.length > 0
+    || localImportState.ideas.length > 0
+    || localImportState.memories.length > 0;
 
   if (isCloudWorkspaceLoading) {
     return (
@@ -573,6 +581,11 @@ function App() {
               setIdeasTabRequest((request) => request + 1);
             }}
             onAddPerson={() => setActiveModal('addPerson')}
+            onAddIdea={() => {
+              setEditingIdea(null);
+              setIsChoosingIdeaRecipient(true);
+              setActiveModal('addIdea');
+            }}
             onEditPerson={handleEditPerson}
             onDeletePerson={deletePerson}
             accountEmail={authUser?.email}
@@ -603,7 +616,10 @@ function App() {
               initialTab={giftListTab}
               ideasTabRequest={ideasTabRequest}
               onAddMemory={() => setActiveModal('addMemory')}
-              onAddIdea={() => setActiveModal('addIdea')}
+              onAddIdea={() => {
+                setIsChoosingIdeaRecipient(false);
+                setActiveModal('addIdea');
+              }}
               onEditPerson={handleEditPerson}
               onUpdatePerson={upsertPerson}
               onDeletePerson={deletePerson}
@@ -646,9 +662,10 @@ function App() {
         />
       )}
 
-      {activeModal === 'addIdea' && selectedPersonId && (
+      {activeModal === 'addIdea' && (selectedPersonId || isChoosingIdeaRecipient) && (
         <AddIdeaModal
-          personId={selectedPersonId}
+          personId={selectedPersonId || ''}
+          people={state.people}
           initialIdea={editingIdea || undefined}
           availableTags={availableOccasionTags}
           onSave={upsertIdea}
@@ -706,6 +723,7 @@ function App() {
           }}
           syncStatus={syncStatus}
           syncMessage={syncMessage}
+          canImportLocalVault={hasLocalVaultToImport}
           onRefreshCloud={() => void refreshFromCloud()}
           onRetryCloudSync={retryCloudSync}
         />

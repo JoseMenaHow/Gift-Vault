@@ -1,17 +1,30 @@
-import { useState } from 'react';
-import { Plus, X } from 'lucide-react';
-import type { GiftIdea } from '../../types';
+import { useMemo, useState } from 'react';
+import { ChevronDown, Plus, Search, X } from 'lucide-react';
+import type { GiftIdea, Person } from '../../types';
 import { getTagColorClassName } from '../../tagColors';
 
 interface Props {
   personId: string;
+  people: Person[];
   initialIdea?: GiftIdea;
   availableTags: string[];
   onSave: (idea: Omit<GiftIdea, 'id' | 'createdAt'> | GiftIdea) => void;
   onClose: () => void;
 }
 
-export default function AddIdeaModal({ personId, initialIdea, availableTags, onSave, onClose }: Props) {
+export default function AddIdeaModal({
+  personId,
+  people,
+  initialIdea,
+  availableTags,
+  onSave,
+  onClose,
+}: Props) {
+  const [recipientId, setRecipientId] = useState(initialIdea?.personId || personId);
+  const initialRecipient = people.find((person) => person.id === (initialIdea?.personId || personId));
+  const [recipientQuery, setRecipientQuery] = useState(initialRecipient?.name || '');
+  const [isRecipientPickerOpen, setIsRecipientPickerOpen] = useState(false);
+  const [activeRecipientIndex, setActiveRecipientIndex] = useState(-1);
   const [title, setTitle] = useState(initialIdea?.title || '');
   const [description, setDescription] = useState(initialIdea?.description || '');
   const [links, setLinks] = useState(initialIdea?.links?.length ? initialIdea.links : ['']);
@@ -19,6 +32,50 @@ export default function AddIdeaModal({ personId, initialIdea, availableTags, onS
   const [tagInput, setTagInput] = useState('');
   const [isTagPickerOpen, setIsTagPickerOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState(initialIdea?.imageUrl || '');
+
+  const selectedRecipient = people.find((person) => person.id === recipientId);
+  const visibleRecipients = useMemo(() => {
+    const normalizedQuery = recipientQuery.trim().toLocaleLowerCase();
+    const isShowingSelectedName = selectedRecipient
+      && normalizedQuery === selectedRecipient.name.toLocaleLowerCase();
+
+    if (!normalizedQuery || isShowingSelectedName) return people;
+    return people.filter((person) => person.name.toLocaleLowerCase().includes(normalizedQuery));
+  }, [people, recipientQuery, selectedRecipient]);
+
+  const selectRecipient = (person: Person) => {
+    setRecipientId(person.id);
+    setRecipientQuery(person.name);
+    setIsRecipientPickerOpen(false);
+    setActiveRecipientIndex(-1);
+  };
+
+  const handleRecipientKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      setIsRecipientPickerOpen(true);
+      if (visibleRecipients.length === 0) return;
+      setActiveRecipientIndex((currentIndex) => {
+        if (event.key === 'ArrowDown') {
+          return currentIndex < 0 ? 0 : (currentIndex + 1) % visibleRecipients.length;
+        }
+        if (currentIndex < 0) return visibleRecipients.length - 1;
+        return (currentIndex - 1 + visibleRecipients.length) % visibleRecipients.length;
+      });
+      return;
+    }
+
+    if (event.key === 'Enter' && isRecipientPickerOpen) {
+      event.preventDefault();
+      const recipient = visibleRecipients[activeRecipientIndex];
+      if (recipient) selectRecipient(recipient);
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      setIsRecipientPickerOpen(false);
+    }
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,7 +118,7 @@ export default function AddIdeaModal({ personId, initialIdea, availableTags, onS
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || !recipientId) return;
 
     const savedLinks = links.map((link) => link.trim()).filter(Boolean);
 
@@ -69,6 +126,7 @@ export default function AddIdeaModal({ personId, initialIdea, availableTags, onS
       // Editing existing idea (preserve id and createdAt)
       onSave({
         ...initialIdea,
+        personId: recipientId,
         title: title.trim(),
         description: description.trim() || undefined,
         links: savedLinks.length > 0 ? savedLinks : undefined,
@@ -78,7 +136,7 @@ export default function AddIdeaModal({ personId, initialIdea, availableTags, onS
     } else {
       // Adding new idea
       onSave({
-        personId,
+        personId: recipientId,
         title: title.trim(),
         description: description.trim() || undefined,
         links: savedLinks.length > 0 ? savedLinks : undefined,
@@ -106,13 +164,90 @@ export default function AddIdeaModal({ personId, initialIdea, availableTags, onS
         <form onSubmit={handleSubmit} className="fullscreen-modal-form">
           <div className="fullscreen-modal-scroll">
             <div className="form-group">
+              <label className="form-label" htmlFor="gift-recipient">Person</label>
+              <div className="gift-recipient-picker">
+                <div className={`gift-recipient-control${isRecipientPickerOpen ? ' is-open' : ''}`}>
+                  <span className="gift-recipient-avatar" aria-hidden="true">
+                    {selectedRecipient?.photoUrl ? (
+                      <img src={selectedRecipient.photoUrl} alt="" />
+                    ) : selectedRecipient ? (
+                      selectedRecipient.emoji || selectedRecipient.name.charAt(0).toUpperCase()
+                    ) : (
+                      <Search size={17} strokeWidth={1.9} />
+                    )}
+                  </span>
+                  <input
+                    id="gift-recipient"
+                    type="text"
+                    value={recipientQuery}
+                    onChange={(event) => {
+                      const nextQuery = event.target.value;
+                      setRecipientQuery(nextQuery);
+                      if (!selectedRecipient || nextQuery !== selectedRecipient.name) setRecipientId('');
+                      setActiveRecipientIndex(-1);
+                      setIsRecipientPickerOpen(true);
+                    }}
+                    onFocus={() => setIsRecipientPickerOpen(true)}
+                    onBlur={() => window.setTimeout(() => setIsRecipientPickerOpen(false), 120)}
+                    onKeyDown={handleRecipientKeyDown}
+                    placeholder="Search people"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-expanded={isRecipientPickerOpen}
+                    aria-controls="gift-recipient-options"
+                    aria-activedescendant={isRecipientPickerOpen && visibleRecipients[activeRecipientIndex]
+                      ? `gift-recipient-${visibleRecipients[activeRecipientIndex].id}`
+                      : undefined}
+                    autoComplete="off"
+                    autoFocus={!recipientId}
+                    required
+                  />
+                  <ChevronDown size={17} strokeWidth={1.9} aria-hidden="true" />
+                </div>
+                {isRecipientPickerOpen && (
+                  <div id="gift-recipient-options" className="gift-recipient-options" role="listbox">
+                    {visibleRecipients.length > 0 ? visibleRecipients.map((person, index) => {
+                      const isSelected = person.id === recipientId;
+                      const isActive = index === activeRecipientIndex;
+
+                      return (
+                        <button
+                          key={person.id}
+                          id={`gift-recipient-${person.id}`}
+                          type="button"
+                          className={`gift-recipient-option${isSelected ? ' is-selected' : ''}${isActive ? ' is-active' : ''}`}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onMouseEnter={() => setActiveRecipientIndex(index)}
+                          onClick={() => selectRecipient(person)}
+                          role="option"
+                          aria-selected={isSelected}
+                        >
+                          <span className="gift-recipient-option-avatar" aria-hidden="true">
+                            {person.photoUrl ? (
+                              <img src={person.photoUrl} alt="" />
+                            ) : (
+                              person.emoji || person.name.charAt(0).toUpperCase()
+                            )}
+                          </span>
+                          <span>{person.name}</span>
+                        </button>
+                      );
+                    }) : (
+                      <p className="gift-recipient-empty">No people match “{recipientQuery.trim()}”.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="form-group">
               <label className="form-label">Title</label>
               <input
                 type="text"
                 className="form-input"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                autoFocus
+                autoFocus={Boolean(recipientId)}
               />
             </div>
 
@@ -273,7 +408,7 @@ export default function AddIdeaModal({ personId, initialIdea, availableTags, onS
             <button
               type="submit"
               className="btn-primary"
-              disabled={!title.trim()}
+              disabled={!title.trim() || !recipientId}
             >
               Save
             </button>

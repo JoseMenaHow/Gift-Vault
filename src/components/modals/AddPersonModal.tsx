@@ -18,7 +18,6 @@ export default function AddPersonModal({ initialPerson, availableTags, onSave, o
   const [isTagPickerOpen, setIsTagPickerOpen] = useState(false);
   const [photoUrl, setPhotoUrl] = useState(initialPerson?.photoUrl || '');
   const [emoji, setEmoji] = useState(initialPerson?.emoji || '');
-  const [labelText, setLabelText] = useState(initialPerson?.labelText || '');
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -77,7 +76,6 @@ export default function AddPersonModal({ initialPerson, availableTags, onSave, o
         tags: selectedTags.length > 0 ? selectedTags : undefined,
         photoUrl: photoUrl.trim() || undefined,
         emoji: emoji || undefined,
-        labelText: labelText.trim() || undefined,
       });
     } else {
       // Adding new person
@@ -86,7 +84,6 @@ export default function AddPersonModal({ initialPerson, availableTags, onSave, o
         tags: selectedTags.length > 0 ? selectedTags : undefined,
         photoUrl: photoUrl.trim() || undefined,
         emoji: emoji || undefined,
-        labelText: labelText.trim() || undefined,
       });
     }
   };
@@ -225,17 +222,6 @@ export default function AddPersonModal({ initialPerson, availableTags, onSave, o
                 </button>
               ))}
             </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Custom label (optional)</label>
-            <input
-              type="text"
-              className="form-input"
-              value={labelText}
-              onChange={(e) => setLabelText(e.target.value)}
-              placeholder="e.g., Anniversary in 23 days"
-            />
           </div>
 
           <div className="button-group">

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { CheckCircle2, CircleAlert, CloudUpload, Download, LoaderCircle, LogOut, Mail, RefreshCw, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, CircleAlert, Cloud, CloudUpload, Download, LoaderCircle, LogOut, Mail, RefreshCw, X } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '../../supabase';
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
   onOpenCloudMigration: () => void;
   syncStatus: 'local' | 'loading' | 'synced' | 'saving' | 'pending' | 'conflict' | 'error';
   syncMessage: string;
+  canImportLocalVault: boolean;
   onRefreshCloud: () => void;
   onRetryCloudSync: () => void;
 }
@@ -60,6 +61,7 @@ export default function AccountModal({
   onOpenCloudMigration,
   syncStatus,
   syncMessage,
+  canImportLocalVault,
   onRefreshCloud,
   onRetryCloudSync,
 }: Props) {
@@ -68,6 +70,7 @@ export default function AccountModal({
   const [requestState, setRequestState] = useState<RequestState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const [isDataSyncOpen, setIsDataSyncOpen] = useState(false);
   const requestInFlight = useRef(false);
 
   useEffect(() => {
@@ -149,6 +152,8 @@ export default function AccountModal({
   const isRequestBlocked = isBusy || cooldownSeconds > 0;
   const isCreatingAccount = authMode === 'create-account';
   const isSyncBusy = syncStatus === 'loading' || syncStatus === 'saving';
+  const syncNeedsAction = syncStatus === 'pending' || syncStatus === 'conflict' || syncStatus === 'error';
+  const syncHasAlert = syncStatus === 'conflict' || syncStatus === 'error';
   const syncLabel = syncStatus === 'synced'
     ? 'Up to date across your devices'
     : syncStatus === 'saving'
@@ -172,7 +177,7 @@ export default function AccountModal({
       >
         <div className="account-modal-heading">
           <div>
-            <p className="page-eyebrow">Gift Vault account</p>
+            {!email && <p className="page-eyebrow">Gift Vault account</p>}
             <h2 id="account-modal-title" className="modal-title">
               {email ? 'Your account' : isCreatingAccount ? 'Create account' : 'Sign in'}
             </h2>
@@ -197,43 +202,103 @@ export default function AccountModal({
           </div>
         ) : email ? (
           <div className="account-signed-in">
-            <div className="account-status account-status-success">
-              <CheckCircle2 size={19} strokeWidth={2} aria-hidden="true" />
-              <div>
-                <strong>Signed in as {email}</strong>
-                <span>Your local vault stays on this device unless you choose to import it.</span>
+            <div className="account-identity">
+              <span className="account-identity-icon" aria-hidden="true">
+                <Mail size={18} strokeWidth={1.9} />
+              </span>
+              <div className="account-identity-copy">
+                <strong>{email}</strong>
+                <span
+                  className={`account-sync-summary account-sync-summary-${syncStatus}`}
+                  role={syncHasAlert ? 'alert' : 'status'}
+                >
+                  {isSyncBusy ? (
+                    <LoaderCircle className="account-spinner" size={13} strokeWidth={2} aria-hidden="true" />
+                  ) : syncHasAlert ? (
+                    <CircleAlert size={13} strokeWidth={2} aria-hidden="true" />
+                  ) : syncStatus === 'synced' ? (
+                    <CheckCircle2 size={13} strokeWidth={2} aria-hidden="true" />
+                  ) : (
+                    <Cloud size={13} strokeWidth={2} aria-hidden="true" />
+                  )}
+                  {syncMessage || syncLabel}
+                </span>
               </div>
             </div>
-            <div className={`account-cloud-section${syncStatus === 'conflict' || syncStatus === 'error' ? ' account-cloud-section-alert' : ''}`}>
-              <div>
-                <strong>Cloud sync</strong>
-                <span>{syncMessage || syncLabel}</span>
-              </div>
-              <div className="account-cloud-actions">
-                {(syncStatus === 'pending' || syncStatus === 'conflict' || syncStatus === 'error') && (
-                  <button type="button" className="account-cloud-button" onClick={onRetryCloudSync} disabled={isSyncBusy}>
-                    <RefreshCw size={17} strokeWidth={2} aria-hidden="true" />
-                    Retry sync
-                  </button>
-                )}
-                <button type="button" className="account-cloud-button" onClick={onRefreshCloud} disabled={isSyncBusy}>
-                  <RefreshCw className={isSyncBusy ? 'account-spinner' : undefined} size={17} strokeWidth={2} aria-hidden="true" />
-                  Refresh
-                </button>
-              </div>
-            </div>
-            <div className="account-cloud-section">
-              <div>
-                <strong>Import a local vault</strong>
-                <span>Bring locally saved gifts into an empty account without replacing cloud data.</span>
-              </div>
-              <button type="button" className="account-cloud-button" onClick={onOpenCloudMigration}>
-                <CloudUpload size={17} strokeWidth={2} aria-hidden="true" />
-                Import local vault
+
+            <div className={`account-data-sync${syncHasAlert ? ' has-alert' : ''}`}>
+              <button
+                type="button"
+                className="account-data-sync-toggle"
+                onClick={() => setIsDataSyncOpen((isOpen) => !isOpen)}
+                aria-expanded={isDataSyncOpen}
+                aria-controls="account-data-sync-panel"
+              >
+                <span>
+                  <strong>Data &amp; sync</strong>
+                  <small>Cloud refresh, backups, and local data.</small>
+                </span>
+                <ChevronDown size={18} strokeWidth={2} aria-hidden="true" />
               </button>
+              <div
+                id="account-data-sync-panel"
+                className={`account-data-sync-panel${isDataSyncOpen ? ' is-open' : ''}`}
+                aria-hidden={!isDataSyncOpen}
+                inert={!isDataSyncOpen}
+              >
+                <div className="account-data-sync-panel-inner">
+                  <div className="account-data-action">
+                    <span className="account-data-action-icon" aria-hidden="true">
+                      <RefreshCw className={isSyncBusy ? 'account-spinner' : undefined} size={17} strokeWidth={2} />
+                    </span>
+                    <span className="account-data-action-copy">
+                      <strong>Sync now</strong>
+                      <small>{syncMessage || syncLabel}</small>
+                    </span>
+                    <span className="account-data-action-buttons">
+                      {syncNeedsAction && (
+                        <button type="button" onClick={onRetryCloudSync} disabled={isSyncBusy}>
+                          Retry
+                        </button>
+                      )}
+                      <button type="button" onClick={onRefreshCloud} disabled={isSyncBusy}>
+                        {syncNeedsAction ? 'Refresh' : 'Sync now'}
+                      </button>
+                    </span>
+                  </div>
+
+                  <div className="account-data-action">
+                    <span className="account-data-action-icon" aria-hidden="true">
+                      <Download size={17} strokeWidth={2} />
+                    </span>
+                    <span className="account-data-action-copy">
+                      <strong>Backup &amp; restore</strong>
+                      <small>Download a copy or replace this cloud vault.</small>
+                    </span>
+                    <button type="button" className="account-data-action-button" onClick={onOpenBackup}>
+                      Open
+                    </button>
+                  </div>
+
+                  {canImportLocalVault && (
+                    <div className="account-data-action">
+                      <span className="account-data-action-icon" aria-hidden="true">
+                        <CloudUpload size={17} strokeWidth={2} />
+                      </span>
+                      <span className="account-data-action-copy">
+                        <strong>Import local vault</strong>
+                        <small>Bring this device’s local gifts into your account.</small>
+                      </span>
+                      <button type="button" className="account-data-action-button" onClick={onOpenCloudMigration}>
+                        Import
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             {requestState === 'error' && <p className="account-error" role="alert">{errorMessage}</p>}
-            <button type="button" className="account-sign-out" onClick={() => void signOut()} disabled={isBusy}>
+            <button type="button" className="account-sign-out account-sign-out-footer" onClick={() => void signOut()} disabled={isBusy}>
               {requestState === 'signing-out' ? <LoaderCircle className="account-spinner" size={17} /> : <LogOut size={17} strokeWidth={2} />}
               {requestState === 'signing-out' ? 'Signing out…' : 'Sign out'}
             </button>
@@ -330,16 +395,18 @@ export default function AccountModal({
           </>
         )}
 
-        <div className="account-backup-section">
-          <div>
-            <strong>{email ? 'Vault backup' : 'Local backup'}</strong>
-            <span>{email ? 'Download a backup or replace this account’s cloud vault.' : 'Download or restore this device’s Gift Vault data.'}</span>
+        {!email && (
+          <div className="account-backup-section">
+            <div>
+              <strong>Local backup</strong>
+              <span>Download or restore this device’s Gift Vault data.</span>
+            </div>
+            <button type="button" className="account-backup-button" onClick={onOpenBackup}>
+              <Download size={17} strokeWidth={2} aria-hidden="true" />
+              Backup &amp; restore
+            </button>
           </div>
-          <button type="button" className="account-backup-button" onClick={onOpenBackup}>
-            <Download size={17} strokeWidth={2} aria-hidden="true" />
-            Backup &amp; restore
-          </button>
-        </div>
+        )}
       </section>
     </div>
   );

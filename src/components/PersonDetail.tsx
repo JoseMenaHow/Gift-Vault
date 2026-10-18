@@ -179,9 +179,6 @@ export default function PersonDetail({
               ))}
             </div>
           )}
-          {person.labelText && (
-            <p className="person-note">{person.labelText}</p>
-          )}
         </div>
       </section>
 
