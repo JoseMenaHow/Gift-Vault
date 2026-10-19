@@ -319,6 +319,69 @@ h3 {
   line-height: 1.4;
 }
 
+.occasion-reminder.is-carousel {
+  margin-bottom: 18px;
+}
+
+.occasion-reminder.is-carousel .workspace-nudge {
+  margin-bottom: 0;
+}
+
+.occasion-carousel-controls {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 0 9px;
+}
+
+.occasion-carousel-controls > button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--peach-strong);
+}
+
+.occasion-carousel-controls > button:hover,
+.occasion-carousel-controls > button:focus-visible {
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+}
+
+.occasion-carousel-pages {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.occasion-carousel-pages button {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.occasion-carousel-pages button::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--peach-strong) 30%, transparent);
+  content: '';
+  transition: width 150ms ease, background 150ms ease;
+}
+
+.occasion-carousel-pages button.is-active::before {
+  width: 16px;
+  border-radius: 999px;
+  background: var(--peach-strong);
+}
+
 .people-list {
   display: grid;
   gap: 10px;
@@ -989,6 +1052,94 @@ h3 {
 
 .birthday-summary svg {
   opacity: 0.72;
+}
+
+.birthday-planning-card {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin: -8px 0 22px;
+  padding: 12px 14px;
+  border: 1px solid var(--peach-border);
+  border-radius: var(--radius-card);
+  background: var(--peach-soft);
+}
+
+.birthday-planning-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--peach-strong);
+}
+
+.birthday-planning-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.birthday-planning-copy span {
+  color: var(--peach-strong);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.birthday-planning-copy strong {
+  color: var(--text-heading);
+  font-size: 14px;
+}
+
+.birthday-planning-action,
+.birthday-planning-bought button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--peach-border);
+  border-radius: 7px;
+  background: var(--bg-card);
+  color: var(--peach-strong);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.birthday-planning-action:hover,
+.birthday-planning-action:focus-visible,
+.birthday-planning-bought button:hover,
+.birthday-planning-bought button:focus-visible {
+  border-color: var(--peach);
+}
+
+.birthday-planning-bought {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.birthday-planning-bought > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.birthday-planning-bought button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-meta);
 }
 
 .birthday-editor {
@@ -3637,6 +3788,16 @@ h3 {
 
   .account-data-action-button,
   .account-data-action-buttons {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .birthday-planning-card {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .birthday-planning-action,
+  .birthday-planning-bought {
     grid-column: 2;
     justify-self: start;
   }

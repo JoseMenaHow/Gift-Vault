@@ -58,6 +58,12 @@ When signed in, **Backup & restore** validates the selected file, previews its r
 
 Use a test account with two people, gifts with links and uploaded images, a delivered gift, birthday, tags, and a memory. Download a backup, change or remove several cloud records, then restore that backup while signed in. Confirm that a `gift-vault-cloud-safety-*.json` file downloads before the replacement, the restored account shows the original data after completion, and a second browser profile shows the same result after **Account → Refresh**. Test an unreadable image backup separately: the app should stop during staging with the existing cloud vault unchanged.
 
+## Birthday Gift Status Setup
+
+Birthday gift purchase status requires [20261019000100_add_birthday_gift_bought.sql](./supabase/migrations/20261019000100_add_birthday_gift_bought.sql) after the four migrations listed above. Run the complete file in Supabase SQL Editor before testing or publishing the client that uses this field. The migration adds one nullable date column and wraps the existing guarded sync and restore functions; it does not rewrite existing vault records.
+
+Test with a disposable account first. Give a person a birthday within two calendar months, mark the birthday gift as bought, and refresh from a second browser profile. Confirm the status appears there and the birthday disappears from the global 30-day reminder. Undo from the second profile and refresh the first to confirm it returns.
+
 ---
 
 # React + TypeScript + Vite

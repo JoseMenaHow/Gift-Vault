@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { CalendarDays, CalendarPlus, Leaf, Pencil, Trash2 } from 'lucide-react';
+import { CalendarCheck, CalendarDays, CalendarHeart, CalendarPlus, Check, Leaf, Pencil, Trash2, Undo2 } from 'lucide-react';
 import type { Person, Memory, GiftIdea } from '../types';
 import Tabs from './Tabs';
 import OverflowMenu from './OverflowMenu';
 import { getTagColorClassName } from '../tagColors';
 import GiftIdeaMedia from './GiftIdeaMedia';
-import { formatBirthday, getBirthdayFromInput, toBirthdayInputValue } from '../birthday';
+import { formatBirthday, getBirthdayFromInput, getBirthdayPlanning, toBirthdayInputValue } from '../birthday';
 
 type DetailTab = 'Ideas' | 'Delivered gifts' | 'Memories';
 type GiftTab = Exclude<DetailTab, 'Memories'>;
@@ -55,6 +55,7 @@ export default function PersonDetail({
   const [selectedOccasion, setSelectedOccasion] = useState<string>('All');
   const [isBirthdayEditorOpen, setIsBirthdayEditorOpen] = useState(false);
   const [birthdayInput, setBirthdayInput] = useState(toBirthdayInputValue(person.birthday));
+  const birthdayPlanning = getBirthdayPlanning(person);
 
   const activeTab = tabState.request === ideasTabRequest ? tabState.tab : 'Ideas';
 
@@ -87,12 +88,16 @@ export default function PersonDetail({
     const birthday = getBirthdayFromInput(birthdayInput);
     if (!birthday) return;
 
-    onUpdatePerson({ ...person, birthday });
+    onUpdatePerson({
+      ...person,
+      birthday,
+      birthdayGiftBoughtFor: birthday === person.birthday ? person.birthdayGiftBoughtFor : undefined,
+    });
     setIsBirthdayEditorOpen(false);
   };
 
   const removeBirthday = () => {
-    onUpdatePerson({ ...person, birthday: undefined });
+    onUpdatePerson({ ...person, birthday: undefined, birthdayGiftBoughtFor: undefined });
     setIsBirthdayEditorOpen(false);
   };
 
@@ -181,6 +186,43 @@ export default function PersonDetail({
           )}
         </div>
       </section>
+
+      {birthdayPlanning && (
+        <aside className="birthday-planning-card" aria-label={`Birthday planning for ${person.name}`}>
+          <span className="birthday-planning-icon" aria-hidden="true">
+            {birthdayPlanning.isBought
+              ? <CalendarCheck size={20} strokeWidth={1.9} />
+              : <CalendarHeart size={20} strokeWidth={1.9} />}
+          </span>
+          <div className="birthday-planning-copy">
+            <span>Upcoming birthday</span>
+            <strong>{formatBirthday(person.birthday!)}</strong>
+          </div>
+          {birthdayPlanning.isBought ? (
+            <div className="birthday-planning-bought">
+              <span><Check size={14} strokeWidth={2.2} aria-hidden="true" /> Bought</span>
+              <button
+                type="button"
+                onClick={() => onUpdatePerson({ ...person, birthdayGiftBoughtFor: undefined })}
+              >
+                <Undo2 size={13} strokeWidth={2} aria-hidden="true" />
+                Undo
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="birthday-planning-action"
+              onClick={() => onUpdatePerson({
+                ...person,
+                birthdayGiftBoughtFor: birthdayPlanning.occurrenceKey,
+              })}
+            >
+              Mark as bought
+            </button>
+          )}
+        </aside>
+      )}
 
       <Tabs
         tabs={['Ideas', 'Delivered gifts', 'Memories']}

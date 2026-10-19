@@ -93,4 +93,26 @@ describe('pre-cloud backups', () => {
     expect(saveDurableState).toHaveBeenNthCalledWith(2, previousState, 123);
     expect(getLocalBackupRestoreErrorMessage(quotaError)).toContain('does not have enough storage space');
   });
+
+  it('preserves a birthday purchase occurrence in a current backup', async () => {
+    const backup = {
+      format: 'gift-vault-backup',
+      version: 1,
+      exportedAt: '2026-10-19T12:00:00.000Z',
+      state: {
+        people: [{
+          id: 'person-1',
+          name: 'Fabi',
+          birthday: '04-12',
+          birthdayGiftBoughtFor: '2027-04-12',
+        }],
+        ideas: [],
+        memories: [],
+      },
+    };
+
+    const restoredState = await readBackupFile(new File([JSON.stringify(backup)], 'gift-vault-backup.json'));
+
+    expect(restoredState.people[0].birthdayGiftBoughtFor).toBe('2027-04-12');
+  });
 });

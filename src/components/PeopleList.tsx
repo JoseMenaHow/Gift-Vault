@@ -1,20 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarHeart, CircleUserRound, Gift, Plus, Search, Tags, UserPlus } from 'lucide-react';
+import { CalendarHeart, ChevronLeft, ChevronRight, CircleUserRound, Gift, Plus, Search, Tags, UserPlus } from 'lucide-react';
 import type { Person, GiftIdea } from '../types';
 import OverflowMenu from './OverflowMenu';
 import { getTagColorClassName } from '../tagColors';
 import WorkspaceNudge from './WorkspaceNudge';
 
+type UpcomingOccasion = {
+  id: string;
+  personId: string;
+  personName: string;
+  type: 'birthday' | 'anniversary';
+  daysAway: number;
+  message: string;
+};
+
 interface Props {
   people: Person[];
   ideas: GiftIdea[];
   selectedPersonId?: string | null;
-  birthdayNudge?: {
-    personId: string;
-    message: string;
-  };
+  upcomingOccasions: UpcomingOccasion[];
   onSelectPerson: (personId: string) => void;
-  onOpenPersonIdeas: (personId: string) => void;
+  onOpenOccasion: (personId: string) => void;
   onAddPerson: () => void;
   onAddIdea: () => void;
   onEditPerson: (person: Person) => void;
@@ -25,13 +31,85 @@ interface Props {
   onOpenAccount: () => void;
 }
 
+function UpcomingOccasionReminder({
+  occasions,
+  onOpenPerson,
+}: {
+  occasions: UpcomingOccasion[];
+  onOpenPerson: (personId: string) => void;
+}) {
+  const [occasionIndex, setOccasionIndex] = useState(0);
+  const activeOccasion = occasions[occasionIndex];
+  const isCarousel = occasions.length > 1;
+
+  if (!activeOccasion) return null;
+
+  return (
+    <div
+      className={`occasion-reminder${isCarousel ? ' is-carousel' : ''}`}
+      role={isCarousel ? 'region' : undefined}
+      aria-roledescription={isCarousel ? 'carousel' : undefined}
+      aria-label={isCarousel ? 'Upcoming occasions' : undefined}
+    >
+      <div
+        className="occasion-reminder-slide"
+        role={isCarousel ? 'group' : undefined}
+        aria-roledescription={isCarousel ? 'slide' : undefined}
+        aria-label={isCarousel ? `${occasionIndex + 1} of ${occasions.length}` : undefined}
+        aria-live={isCarousel ? 'polite' : undefined}
+      >
+        <WorkspaceNudge
+          icon={<CalendarHeart size={18} strokeWidth={2} />}
+          label="Coming up"
+          onClick={() => onOpenPerson(activeOccasion.personId)}
+          ariaLabel={`Open ${activeOccasion.personName}'s profile. ${activeOccasion.message}`}
+        >
+          {activeOccasion.message}
+        </WorkspaceNudge>
+      </div>
+      {isCarousel && (
+        <div className="occasion-carousel-controls">
+          <button
+            type="button"
+            onClick={() => setOccasionIndex((currentIndex) => (
+              (currentIndex - 1 + occasions.length) % occasions.length
+            ))}
+            aria-label="Previous upcoming occasion"
+          >
+            <ChevronLeft size={15} strokeWidth={2} aria-hidden="true" />
+          </button>
+          <div className="occasion-carousel-pages" aria-label="Choose upcoming occasion">
+            {occasions.map((occasion, index) => (
+              <button
+                key={occasion.id}
+                type="button"
+                className={index === occasionIndex ? 'is-active' : undefined}
+                onClick={() => setOccasionIndex(index)}
+                aria-label={`Show ${occasion.personName}'s ${occasion.type}`}
+                aria-current={index === occasionIndex ? 'true' : undefined}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setOccasionIndex((currentIndex) => (currentIndex + 1) % occasions.length)}
+            aria-label="Next upcoming occasion"
+          >
+            <ChevronRight size={15} strokeWidth={2} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PeopleList({
   people,
   ideas,
   selectedPersonId,
-  birthdayNudge,
+  upcomingOccasions,
   onSelectPerson,
-  onOpenPersonIdeas,
+  onOpenOccasion,
   onAddPerson,
   onAddIdea,
   onEditPerson,
@@ -47,6 +125,7 @@ export default function PeopleList({
   const [isCreationMenuOpen, setIsCreationMenuOpen] = useState(false);
   const creationMenuRef = useRef<HTMLDivElement>(null);
   const creationButtonRef = useRef<HTMLButtonElement>(null);
+  const occasionOrderKey = upcomingOccasions.map((occasion) => occasion.id).join('|');
 
   useEffect(() => {
     if (!isCreationMenuOpen) return;
@@ -146,16 +225,11 @@ export default function PeopleList({
         </div>
       </header>
 
-      {birthdayNudge && (
-        <WorkspaceNudge
-          icon={<CalendarHeart size={18} strokeWidth={2} />}
-          label="Coming up"
-          onClick={() => onOpenPersonIdeas(birthdayNudge.personId)}
-          ariaLabel={`Open gift ideas for ${birthdayNudge.message}`}
-        >
-          {birthdayNudge.message}
-        </WorkspaceNudge>
-      )}
+      <UpcomingOccasionReminder
+        key={occasionOrderKey}
+        occasions={upcomingOccasions}
+        onOpenPerson={onOpenOccasion}
+      />
 
       {people.length === 0 ? (
         <div className="empty-state">

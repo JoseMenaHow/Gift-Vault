@@ -255,6 +255,7 @@ function verifyRestoredVault(snapshot: CloudSnapshot, staged: StagedRestore) {
     const media = snapshot.people[expected.id];
     if (!actual || actual.name !== expected.name || !sameStrings(actual.tags, expected.tags)
       || actual.birthday !== expected.birthday || actual.labelText !== expected.labelText
+      || actual.birthdayGiftBoughtFor !== expected.birthdayGiftBoughtFor
       || actual.emoji !== expected.emoji || media?.storagePath !== expected.photoStoragePath
       || media?.sourceUrl !== (expected.photoUrl || null)) {
       throw new CloudRestoreError('Gift Vault replaced the cloud records but could not verify every restored person. Keep the downloaded safety backup and refresh this vault before making changes.');

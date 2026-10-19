@@ -39,6 +39,7 @@ type SyncPerson = {
   emoji: string | null;
   labelText: string | null;
   birthday: string | null;
+  birthdayGiftBoughtFor: string | null;
   importSourceId?: string;
 };
 
@@ -187,6 +188,7 @@ async function mapPerson(row: CloudRow) {
     emoji: rowValue(row, 'emoji'),
     labelText: rowValue(row, 'label_text'),
     birthday: rowValue(row, 'birthday'),
+    birthdayGiftBoughtFor: rowValue(row, 'birthday_gift_bought_for'),
   };
   return {
     person,
@@ -313,6 +315,7 @@ function samePerson(first: Person, second: Person, media: CloudRecordMeta) {
     && first.emoji === second.emoji
     && first.labelText === second.labelText
     && first.birthday === second.birthday
+    && first.birthdayGiftBoughtFor === second.birthdayGiftBoughtFor
     && first.photoUrl === media.displayUrl;
 }
 
@@ -391,7 +394,8 @@ async function buildPeopleChanges(
       changes.create.push({
         id: person.id, name: person.name, tags: person.tags || [], photoUrl: media.sourceUrl,
         photoStoragePath: media.storagePath, emoji: person.emoji || null, labelText: person.labelText || null,
-        birthday: person.birthday || null, importSourceId: options.importSourceId,
+        birthday: person.birthday || null, birthdayGiftBoughtFor: person.birthdayGiftBoughtFor || null,
+        importSourceId: options.importSourceId,
       });
       continue;
     }
@@ -402,7 +406,8 @@ async function buildPeopleChanges(
     changes.update.push({
       id: person.id, name: person.name, tags: person.tags || [], photoUrl: media.sourceUrl,
       photoStoragePath: media.storagePath, emoji: person.emoji || null, labelText: person.labelText || null,
-      birthday: person.birthday || null, expectedUpdatedAt: meta.updatedAt,
+      birthday: person.birthday || null, birthdayGiftBoughtFor: person.birthdayGiftBoughtFor || null,
+      expectedUpdatedAt: meta.updatedAt,
     });
   }
   for (const person of snapshot.state.people) {

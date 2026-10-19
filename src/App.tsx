@@ -18,7 +18,7 @@ import DuplicateGiftModal from './components/modals/DuplicateGiftModal';
 import AccountModal from './components/modals/AccountModal';
 import BackupRestoreModal from './components/modals/BackupRestoreModal';
 import CloudMigrationModal from './components/modals/CloudMigrationModal';
-import { findNextBirthday, formatBirthday } from './birthday';
+import { findUnboughtUpcomingBirthdays, formatBirthday } from './birthday';
 import {
   CloudSyncConflictError,
   getCloudSyncErrorMessage,
@@ -530,13 +530,15 @@ function App() {
   const selectedGift = state.ideas.find(idea => idea.id === selectedGiftId && idea.personId === selectedPersonId);
   const personMemories = state.memories.filter(m => m.personId === selectedPersonId);
   const personIdeas = state.ideas.filter(i => i.personId === selectedPersonId);
-  const upcomingBirthday = findNextBirthday(state.people);
-  const birthdayNudge = upcomingBirthday && upcomingBirthday.daysAway <= 30
-    ? {
-        personId: upcomingBirthday.person.id,
-        message: `${upcomingBirthday.person.name}'s birthday is coming up · ${formatBirthday(upcomingBirthday.person.birthday!)}`,
-      }
-    : undefined;
+  const upcomingOccasions = findUnboughtUpcomingBirthdays(state.people)
+    .map(({ person, daysAway }) => ({
+      id: `${person.id}:birthday`,
+      personId: person.id,
+      personName: person.name,
+      type: 'birthday' as const,
+      daysAway,
+      message: `${person.name}'s birthday ${daysAway === 0 ? 'is today' : 'is coming up'} · ${formatBirthday(person.birthday!)}`,
+    }));
   const availablePersonTags = Array.from(
     new Set(state.people.flatMap((person) => person.tags || []))
   ).sort((first, second) => first.localeCompare(second));
@@ -573,8 +575,8 @@ function App() {
               setSelectedGiftId(null);
               setGiftListTab('Ideas');
             }}
-            birthdayNudge={birthdayNudge}
-            onOpenPersonIdeas={(personId) => {
+            upcomingOccasions={upcomingOccasions}
+            onOpenOccasion={(personId) => {
               setSelectedPersonId(personId);
               setSelectedGiftId(null);
               setGiftListTab('Ideas');

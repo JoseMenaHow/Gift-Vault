@@ -37,6 +37,19 @@ function isBirthday(value: unknown): value is string | undefined {
   return date.getMonth() === month - 1 && date.getDate() === day;
 }
 
+function isOptionalDate(value: unknown): value is string | undefined {
+  if (value === undefined) return true;
+  if (typeof value !== 'string') return false;
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
 function normalizeBirthday(value: unknown): unknown {
   if (typeof value !== 'string') return value;
 
@@ -51,7 +64,8 @@ function isPerson(value: unknown): value is Person {
     && isOptionalString(value.photoUrl)
     && isOptionalString(value.emoji)
     && isOptionalString(value.labelText)
-    && isBirthday(value.birthday);
+    && isBirthday(value.birthday)
+    && isOptionalDate(value.birthdayGiftBoughtFor);
 }
 
 function isMemory(value: unknown): value is Memory {

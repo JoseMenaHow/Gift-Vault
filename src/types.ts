@@ -6,6 +6,7 @@ export type Person = {
   emoji?: string;
   labelText?: string;
   birthday?: string;
+  birthdayGiftBoughtFor?: string;
 };
 
 export type Memory = {

@@ -110,4 +110,82 @@ describe('cloud revision guard', () => {
       }),
     }));
   });
+
+  it('persists a birthday purchase occurrence through the guarded person update', async () => {
+    const originalPerson = { id: 'person-1', name: 'Fabi', birthday: '04-12' };
+    const snapshot: CloudSnapshot = {
+      state: { people: [originalPerson], ideas: [], memories: [] },
+      people: {
+        'person-1': {
+          updatedAt: '2026-10-19T12:00:00.000Z',
+          sourceUrl: null,
+          storagePath: null,
+        },
+      },
+      gifts: {},
+      memories: {},
+      revision: 8,
+    };
+    const boughtState: AppState = {
+      people: [{ ...originalPerson, birthdayGiftBoughtFor: '2027-04-12' }],
+      ideas: [],
+      memories: [],
+    };
+
+    await expect(synchronizeCloudVault('account-1', boughtState, snapshot))
+      .rejects.toBeInstanceOf(CloudSyncConflictError);
+
+    expect(mocks.rpc).toHaveBeenCalledWith('apply_gift_vault_sync', expect.objectContaining({
+      p_expected_revision: 8,
+      p_changes: expect.objectContaining({
+        people: {
+          create: [],
+          update: [expect.objectContaining({
+            id: 'person-1',
+            birthday: '04-12',
+            birthdayGiftBoughtFor: '2027-04-12',
+          })],
+          delete: [],
+        },
+      }),
+    }));
+  });
+
+  it('persists undoing a birthday purchase occurrence as a null guarded update', async () => {
+    const originalPerson = {
+      id: 'person-1',
+      name: 'Fabi',
+      birthday: '04-12',
+      birthdayGiftBoughtFor: '2027-04-12',
+    };
+    const snapshot: CloudSnapshot = {
+      state: { people: [originalPerson], ideas: [], memories: [] },
+      people: {
+        'person-1': {
+          updatedAt: '2026-10-19T12:00:00.000Z',
+          sourceUrl: null,
+          storagePath: null,
+        },
+      },
+      gifts: {},
+      memories: {},
+      revision: 9,
+    };
+    const undoneState: AppState = {
+      people: [{ id: 'person-1', name: 'Fabi', birthday: '04-12' }],
+      ideas: [],
+      memories: [],
+    };
+
+    await expect(synchronizeCloudVault('account-1', undoneState, snapshot))
+      .rejects.toBeInstanceOf(CloudSyncConflictError);
+
+    expect(mocks.rpc).toHaveBeenCalledWith('apply_gift_vault_sync', expect.objectContaining({
+      p_changes: expect.objectContaining({
+        people: expect.objectContaining({
+          update: [expect.objectContaining({ birthdayGiftBoughtFor: null })],
+        }),
+      }),
+    }));
+  });
 });
