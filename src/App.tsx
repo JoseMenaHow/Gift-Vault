@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { CheckCircle2, X } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { AppState, Person, Memory, GiftIdea } from './types';
@@ -24,6 +24,8 @@ import {
   getCloudSyncErrorMessage,
   loadCloudSyncCache,
   loadCloudVault,
+  mergeRefreshedCloudMedia,
+  refreshCloudSnapshotMedia,
   sameCloudState,
   saveCloudSyncCache,
   synchronizeCloudVault,
@@ -33,6 +35,8 @@ import {
 type ModalType = 'addPerson' | 'addMemory' | 'addIdea' | null;
 type GiftListTab = 'Ideas' | 'Delivered gifts';
 type SyncStatus = 'local' | 'loading' | 'synced' | 'saving' | 'pending' | 'conflict' | 'error';
+
+const CLOUD_MEDIA_REFRESH_MS = 45 * 60 * 1000;
 
 function getAuthCallbackErrorMessage() {
   const query = new URLSearchParams(window.location.search);
@@ -75,6 +79,7 @@ function App() {
   const [syncRetry, setSyncRetry] = useState(0);
   const cloudSnapshotRef = useRef<CloudSnapshot | null>(null);
   const syncInFlightRef = useRef(false);
+  const mediaRefreshInFlightRef = useRef(false);
   const cloudRestoreInProgressRef = useRef(false);
   const currentStateRef = useRef(state);
   const authUserId = authUser?.id;
@@ -82,6 +87,28 @@ function App() {
   useEffect(() => {
     currentStateRef.current = state;
   }, [state]);
+
+  const refreshCloudMedia = useCallback(async (force = false) => {
+    if (!authUserId || persistenceAccountId !== authUserId || mediaRefreshInFlightRef.current) return;
+    const snapshot = cloudSnapshotRef.current;
+    if (!snapshot) return;
+    if (!force && Date.now() - (snapshot.mediaRefreshedAt || 0) < CLOUD_MEDIA_REFRESH_MS) return;
+
+    mediaRefreshInFlightRef.current = true;
+    try {
+      const refreshed = await refreshCloudSnapshotMedia(snapshot);
+      if (cloudSnapshotRef.current !== snapshot) return;
+
+      const cachedSync = loadCloudSyncCache(authUserId);
+      cloudSnapshotRef.current = refreshed;
+      saveCloudSyncCache(authUserId, { snapshot: refreshed, pending: cachedSync?.pending || false });
+      setState((current) => mergeRefreshedCloudMedia(current, snapshot, refreshed));
+    } catch (error) {
+      console.error('Failed to refresh private image links:', error);
+    } finally {
+      mediaRefreshInFlightRef.current = false;
+    }
+  }, [authUserId, persistenceAccountId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -186,8 +213,15 @@ function App() {
         if (cachedSync?.pending) {
           const cachedState = await getLatestLocalState(loadState(authUserId), authUserId);
           if (!isMounted) return;
-          cloudSnapshotRef.current = cachedSync.snapshot;
-          setState(cachedState);
+          let cachedSnapshot = cachedSync.snapshot;
+          try {
+            cachedSnapshot = await refreshCloudSnapshotMedia(cachedSnapshot);
+            saveCloudSyncCache(authUserId, { snapshot: cachedSnapshot, pending: true });
+          } catch (error) {
+            console.error('Failed to refresh cached private image links:', error);
+          }
+          cloudSnapshotRef.current = cachedSnapshot;
+          setState(mergeRefreshedCloudMedia(cachedState, cachedSync.snapshot, cachedSnapshot));
           setPersistenceAccountId(authUserId);
           setSyncStatus('pending');
           setSyncMessage('Changes saved on this device are waiting to sync.');
@@ -219,6 +253,23 @@ function App() {
     void activateWorkspace();
     return () => { isMounted = false; };
   }, [authUserId, isAuthLoading, isPersistenceReady]);
+
+  useEffect(() => {
+    if (!authUserId || persistenceAccountId !== authUserId || isCloudWorkspaceLoading) return;
+
+    const interval = window.setInterval(() => {
+      void refreshCloudMedia();
+    }, CLOUD_MEDIA_REFRESH_MS);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshCloudMedia();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [authUserId, isCloudWorkspaceLoading, persistenceAccountId, refreshCloudMedia]);
 
   useEffect(() => {
     if (!authUserId || persistenceAccountId !== authUserId || isCloudWorkspaceLoading) return;

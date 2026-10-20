@@ -83,6 +83,7 @@ export type CloudSnapshot = {
   gifts: Record<string, CloudRecordMeta>;
   memories: Record<string, CloudRecordMeta>;
   revision?: number;
+  mediaRefreshedAt?: number;
 };
 
 export type CloudSyncCache = {
@@ -302,6 +303,64 @@ export async function loadCloudVault(ownerId: string): Promise<CloudSnapshot> {
     gifts: giftsMeta,
     memories: memoriesMeta,
     revision,
+    mediaRefreshedAt: Date.now(),
+  };
+}
+
+export async function refreshCloudSnapshotMedia(snapshot: CloudSnapshot): Promise<CloudSnapshot> {
+  const peopleMeta = { ...snapshot.people };
+  const giftsMeta = { ...snapshot.gifts };
+  const people = await Promise.all(snapshot.state.people.map(async (person) => {
+    const meta = peopleMeta[person.id];
+    if (!meta?.storagePath) return person;
+
+    const displayUrl = await displayMedia(meta.sourceUrl || null, meta.storagePath);
+    peopleMeta[person.id] = { ...meta, displayUrl };
+    return { ...person, photoUrl: displayUrl };
+  }));
+  const ideas = await Promise.all(snapshot.state.ideas.map(async (idea) => {
+    const meta = giftsMeta[idea.id];
+    if (!meta?.storagePath) return idea;
+
+    const displayUrl = await displayMedia(meta.sourceUrl || null, meta.storagePath);
+    giftsMeta[idea.id] = { ...meta, displayUrl };
+    return { ...idea, imageUrl: displayUrl };
+  }));
+
+  return {
+    ...snapshot,
+    state: { ...snapshot.state, people, ideas },
+    people: peopleMeta,
+    gifts: giftsMeta,
+    mediaRefreshedAt: Date.now(),
+  };
+}
+
+export function mergeRefreshedCloudMedia(
+  current: AppState,
+  previous: CloudSnapshot,
+  refreshed: CloudSnapshot,
+): AppState {
+  return {
+    ...current,
+    people: current.people.map((person) => {
+      const previousMeta = previous.people[person.id];
+      const refreshedPerson = refreshed.state.people.find((candidate) => candidate.id === person.id);
+      return previousMeta?.storagePath
+        && person.photoUrl === previousMeta.displayUrl
+        && refreshedPerson?.photoUrl
+        ? { ...person, photoUrl: refreshedPerson.photoUrl }
+        : person;
+    }),
+    ideas: current.ideas.map((idea) => {
+      const previousMeta = previous.gifts[idea.id];
+      const refreshedIdea = refreshed.state.ideas.find((candidate) => candidate.id === idea.id);
+      return previousMeta?.storagePath
+        && idea.imageUrl === previousMeta.displayUrl
+        && refreshedIdea?.imageUrl
+        ? { ...idea, imageUrl: refreshedIdea.imageUrl }
+        : idea;
+    }),
   };
 }
 
